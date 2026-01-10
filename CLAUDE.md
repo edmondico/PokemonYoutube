@@ -53,3 +53,11 @@ npm run preview      # Preview production build
 2. Gemini searches Google in real-time and returns categorized ideas
 3. User can save ideas to Planner, generate scripts, or dislike to train AI
 4. Saved ideas move through Kanban stages until marked done
+
+### AI Prompts Configuration
+All AI prompts are in `src/config/aiPrompts.ts` for easy editing:
+- `AI_CONFIG.model` - Change the Gemini model
+- `AI_CONFIG.systemRole` - How the AI should behave
+- `AI_CONFIG.categories` - The 4 idea categories and their descriptions
+- `generateSearchPrompt()` - Main search prompt template
+- `generateScriptPrompt()` - Script generation prompt template
