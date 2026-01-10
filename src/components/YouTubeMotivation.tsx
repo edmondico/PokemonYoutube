@@ -18,11 +18,26 @@ import {
   ArrowUp,
   Sparkles,
   RefreshCcw,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  BarChart3,
+  CalendarDays,
+  TrendingDown,
+  Minus,
+  ThumbsUp
 } from 'lucide-react';
-import { fetchChannelByHandle } from '../services/youtubeService';
+import {
+  fetchChannelByHandle,
+  fetchChannelVideos,
+  analyzeChannelData,
+  YouTubeVideo,
+  ChannelAnalytics
+} from '../services/youtubeService';
 
 interface ChannelStats {
+  channelId: string;
   subscribers: number;
   totalViews: number;
   totalVideos: number;
@@ -59,8 +74,10 @@ const YouTubeMotivation: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [activeTab, setActiveTab] = useState<'overview' | 'calendar' | 'analytics'>('overview');
 
   const [stats, setStats] = useState<ChannelStats>({
+    channelId: '',
     subscribers: 0,
     totalViews: 0,
     totalVideos: 0,
@@ -72,6 +89,10 @@ const YouTubeMotivation: React.FC = () => {
     country: ''
   });
 
+  const [videos, setVideos] = useState<YouTubeVideo[]>([]);
+  const [analytics, setAnalytics] = useState<ChannelAnalytics | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+
   const loadChannelStats = async () => {
     setIsLoading(true);
     setError(null);
@@ -81,6 +102,7 @@ const YouTubeMotivation: React.FC = () => {
 
       if (channelData) {
         setStats({
+          channelId: channelData.channelId,
           subscribers: channelData.subscribers,
           totalViews: channelData.totalViews,
           totalVideos: channelData.totalVideos,
@@ -91,6 +113,14 @@ const YouTubeMotivation: React.FC = () => {
           joinDate: channelData.joinDate,
           country: channelData.country
         });
+
+        // Fetch videos for calendar and analytics
+        const channelVideos = await fetchChannelVideos(channelData.channelId, 100);
+        setVideos(channelVideos);
+
+        const channelAnalytics = analyzeChannelData(channelVideos);
+        setAnalytics(channelAnalytics);
+
         setLastUpdated(new Date());
       } else {
         setError('Could not load channel data. Check your YouTube API key.');
@@ -121,7 +151,6 @@ const YouTubeMotivation: React.FC = () => {
 
     const milestones: Milestone[] = [];
 
-    // Find next 2 subscriber milestones (1 achieved + 1 upcoming, or 2 upcoming)
     const nextSubIdx = subMilestones.findIndex(m => m > stats.subscribers);
     const subStart = Math.max(0, nextSubIdx - 1);
     const subTargets = subMilestones.slice(subStart, subStart + 2);
@@ -138,7 +167,6 @@ const YouTubeMotivation: React.FC = () => {
       });
     });
 
-    // Find next 2 view milestones
     const nextViewIdx = viewMilestones.findIndex(m => m > stats.totalViews);
     const viewStart = Math.max(0, nextViewIdx - 1);
     const viewTargets = viewMilestones.slice(viewStart, viewStart + 2);
@@ -155,7 +183,6 @@ const YouTubeMotivation: React.FC = () => {
       });
     });
 
-    // Find next 2 video milestones
     const nextVideoIdx = videoMilestones.findIndex(m => m > stats.totalVideos);
     const videoStart = Math.max(0, nextVideoIdx - 1);
     const videoTargets = videoMilestones.slice(videoStart, videoStart + 2);
@@ -177,127 +204,26 @@ const YouTubeMotivation: React.FC = () => {
 
   const milestones = generateMilestones();
 
-  // Achievements system - expanded with Pokemon themes
+  // Achievements system
   const achievements: Achievement[] = [
-    // Video milestones
-    {
-      id: 'first-video',
-      title: 'First Steps',
-      description: 'Published your first video',
-      icon: <Star className="text-yellow-400" size={24} />,
-      locked: stats.totalVideos < 1
-    },
-    {
-      id: '10-videos',
-      title: 'Content Creator',
-      description: 'Published 10 videos',
-      icon: <Video className="text-blue-400" size={24} />,
-      locked: stats.totalVideos < 10
-    },
-    {
-      id: '50-videos',
-      title: 'Dedicated Trainer',
-      description: 'Published 50 videos',
-      icon: <Video className="text-indigo-400" size={24} />,
-      locked: stats.totalVideos < 50
-    },
-    {
-      id: '100-videos',
-      title: 'Pokemon Master',
-      description: 'Published 100 videos',
-      icon: <Award className="text-red-500" size={24} />,
-      locked: stats.totalVideos < 100
-    },
-    // Subscriber milestones
-    {
-      id: '100-subs',
-      title: 'Starter Pokemon',
-      description: 'Reached 100 subscribers',
-      icon: <Users className="text-green-400" size={24} />,
-      locked: stats.subscribers < 100
-    },
-    {
-      id: '1k-subs',
-      title: 'Gym Leader',
-      description: 'Reached 1,000 subscribers',
-      icon: <Users className="text-purple-400" size={24} />,
-      locked: stats.subscribers < 1000
-    },
-    {
-      id: '5k-subs',
-      title: 'Elite Four',
-      description: 'Reached 5,000 subscribers',
-      icon: <Users className="text-blue-500" size={24} />,
-      locked: stats.subscribers < 5000
-    },
-    {
-      id: '10k-subs',
-      title: 'Champion',
-      description: 'Reached 10,000 subscribers',
-      icon: <Trophy className="text-yellow-500" size={24} />,
-      locked: stats.subscribers < 10000
-    },
-    {
-      id: '25k-subs',
-      title: 'Regional Champion',
-      description: 'Reached 25,000 subscribers',
-      icon: <Award className="text-pink-400" size={24} />,
-      locked: stats.subscribers < 25000
-    },
-    {
-      id: '100k-subs',
-      title: 'Silver Play Button',
-      description: 'Reached 100,000 subscribers',
-      icon: <Sparkles className="text-gray-400" size={24} />,
-      locked: stats.subscribers < 100000
-    },
-    // View milestones
-    {
-      id: '10k-views',
-      title: 'First Catch',
-      description: 'Reached 10,000 total views',
-      icon: <Eye className="text-cyan-400" size={24} />,
-      locked: stats.totalViews < 10000
-    },
-    {
-      id: '100k-views',
-      title: 'Rare Spawn',
-      description: 'Reached 100,000 total views',
-      icon: <Eye className="text-teal-400" size={24} />,
-      locked: stats.totalViews < 100000
-    },
-    {
-      id: '1m-views',
-      title: 'Legendary Encounter',
-      description: 'Reached 1,000,000 total views',
-      icon: <Flame className="text-orange-500" size={24} />,
-      locked: stats.totalViews < 1000000
-    },
-    // Special achievements
-    {
-      id: 'consistent',
-      title: 'Consistency King',
-      description: 'Posted regularly for a month',
-      icon: <Calendar className="text-green-400" size={24} />,
-      locked: stats.totalVideos < 4
-    },
-    {
-      id: 'monetized',
-      title: 'Monetization Ready',
-      description: 'Reached 1K subs (halfway to YPP!)',
-      icon: <Zap className="text-yellow-500" size={24} />,
-      locked: stats.subscribers < 1000
-    },
-    {
-      id: 'shiny-hunter',
-      title: 'Shiny Hunter',
-      description: 'Over 10K views per video average',
-      icon: <Sparkles className="text-pink-400" size={24} />,
-      locked: stats.totalVideos === 0 || (stats.totalViews / stats.totalVideos) < 10000
-    }
+    { id: 'first-video', title: 'First Steps', description: 'Published your first video', icon: <Star className="text-yellow-400" size={24} />, locked: stats.totalVideos < 1 },
+    { id: '10-videos', title: 'Content Creator', description: 'Published 10 videos', icon: <Video className="text-blue-400" size={24} />, locked: stats.totalVideos < 10 },
+    { id: '50-videos', title: 'Dedicated Trainer', description: 'Published 50 videos', icon: <Video className="text-indigo-400" size={24} />, locked: stats.totalVideos < 50 },
+    { id: '100-videos', title: 'Pokemon Master', description: 'Published 100 videos', icon: <Award className="text-red-500" size={24} />, locked: stats.totalVideos < 100 },
+    { id: '100-subs', title: 'Starter Pokemon', description: 'Reached 100 subscribers', icon: <Users className="text-green-400" size={24} />, locked: stats.subscribers < 100 },
+    { id: '1k-subs', title: 'Gym Leader', description: 'Reached 1,000 subscribers', icon: <Users className="text-purple-400" size={24} />, locked: stats.subscribers < 1000 },
+    { id: '5k-subs', title: 'Elite Four', description: 'Reached 5,000 subscribers', icon: <Users className="text-blue-500" size={24} />, locked: stats.subscribers < 5000 },
+    { id: '10k-subs', title: 'Champion', description: 'Reached 10,000 subscribers', icon: <Trophy className="text-yellow-500" size={24} />, locked: stats.subscribers < 10000 },
+    { id: '25k-subs', title: 'Regional Champion', description: 'Reached 25,000 subscribers', icon: <Award className="text-pink-400" size={24} />, locked: stats.subscribers < 25000 },
+    { id: '100k-subs', title: 'Silver Play Button', description: 'Reached 100,000 subscribers', icon: <Sparkles className="text-gray-400" size={24} />, locked: stats.subscribers < 100000 },
+    { id: '10k-views', title: 'First Catch', description: 'Reached 10,000 total views', icon: <Eye className="text-cyan-400" size={24} />, locked: stats.totalViews < 10000 },
+    { id: '100k-views', title: 'Rare Spawn', description: 'Reached 100,000 total views', icon: <Eye className="text-teal-400" size={24} />, locked: stats.totalViews < 100000 },
+    { id: '1m-views', title: 'Legendary Encounter', description: 'Reached 1,000,000 total views', icon: <Flame className="text-orange-500" size={24} />, locked: stats.totalViews < 1000000 },
+    { id: 'consistent', title: 'Consistency King', description: 'Posted regularly for a month', icon: <Calendar className="text-green-400" size={24} />, locked: stats.totalVideos < 4 },
+    { id: 'monetized', title: 'Monetization Ready', description: 'Reached 1K subs (halfway to YPP!)', icon: <Zap className="text-yellow-500" size={24} />, locked: stats.subscribers < 1000 },
+    { id: 'shiny-hunter', title: 'Shiny Hunter', description: 'Over 10K views per video average', icon: <Sparkles className="text-pink-400" size={24} />, locked: stats.totalVideos === 0 || (stats.totalViews / stats.totalVideos) < 10000 }
   ];
 
-  // Motivational quotes for Pokemon YouTubers
   const quotes = [
     { text: "Every viral video started with pressing record.", author: "Keep creating!" },
     { text: "The algorithm favors consistency over perfection.", author: "Post regularly!" },
@@ -333,6 +259,38 @@ const YouTubeMotivation: React.FC = () => {
   const unlockedCount = achievements.filter(a => !a.locked).length;
   const nextMilestone = milestones.find(m => !m.achieved);
 
+  // Calendar helpers
+  const getCalendarDays = () => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDay = firstDay.getDay();
+
+    const days: { date: Date; videos: YouTubeVideo[] }[] = [];
+
+    // Empty days before month starts
+    for (let i = 0; i < startingDay; i++) {
+      days.push({ date: new Date(year, month, -startingDay + i + 1), videos: [] });
+    }
+
+    // Days of the month
+    for (let i = 1; i <= daysInMonth; i++) {
+      const date = new Date(year, month, i);
+      const dayVideos = videos.filter(v => {
+        const vDate = new Date(v.publishedAt);
+        return vDate.getDate() === i && vDate.getMonth() === month && vDate.getFullYear() === year;
+      });
+      days.push({ date, videos: dayVideos });
+    }
+
+    return days;
+  };
+
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Error Banner */}
@@ -343,10 +301,7 @@ const YouTubeMotivation: React.FC = () => {
             <p className="text-red-700 dark:text-red-300 font-medium">{error}</p>
             <p className="text-red-600 dark:text-red-400 text-sm">Make sure YouTube Data API v3 is enabled in your Google Cloud project.</p>
           </div>
-          <button
-            onClick={refreshStats}
-            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium"
-          >
+          <button onClick={refreshStats} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium">
             Retry
           </button>
         </div>
@@ -359,7 +314,6 @@ const YouTubeMotivation: React.FC = () => {
 
         <div className="relative z-10">
           <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
-            {/* Profile */}
             <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center border-4 border-white/30 shadow-lg overflow-hidden">
               {stats.profileImage ? (
                 <img src={stats.profileImage} alt={stats.channelName} className="w-full h-full object-cover" />
@@ -380,7 +334,7 @@ const YouTubeMotivation: React.FC = () => {
             </div>
 
             <a
-              href="https://www.youtube.com/@PokeBim"
+              href={`https://www.youtube.com/${CHANNEL_HANDLE}`}
               target="_blank"
               rel="noopener noreferrer"
               className="bg-white text-red-600 px-6 py-2 rounded-full font-bold hover:bg-gray-100 transition-all shadow-lg flex items-center gap-2"
@@ -390,7 +344,6 @@ const YouTubeMotivation: React.FC = () => {
             </a>
           </div>
 
-          {/* Stats Grid */}
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center">
               <Users size={24} className="mx-auto mb-2 opacity-80" />
@@ -411,159 +364,426 @@ const YouTubeMotivation: React.FC = () => {
         </div>
       </div>
 
-      {/* Quick Stats Bar */}
-      <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <Clock size={16} />
-          <span>Updated: {lastUpdated.toLocaleTimeString()}</span>
+      {/* Tab Navigation */}
+      <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl p-2 border border-gray-200 dark:border-gray-700">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              activeTab === 'overview'
+                ? 'bg-pokemon-red text-white'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <Trophy size={16} className="inline mr-2" />
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('calendar')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              activeTab === 'calendar'
+                ? 'bg-pokemon-red text-white'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <CalendarDays size={16} className="inline mr-2" />
+            Calendar
+          </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              activeTab === 'analytics'
+                ? 'bg-pokemon-red text-white'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <BarChart3 size={16} className="inline mr-2" />
+            Analytics
+          </button>
         </div>
-        <button
-          onClick={refreshStats}
-          disabled={isLoading}
-          className="flex items-center gap-2 text-sm text-pokemon-blue hover:text-blue-700 disabled:opacity-50"
-        >
-          <RefreshCcw size={16} className={isLoading ? 'animate-spin' : ''} />
-          Refresh Stats
-        </button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <Clock size={16} />
+            <span>{lastUpdated.toLocaleTimeString()}</span>
+          </div>
+          <button
+            onClick={refreshStats}
+            disabled={isLoading}
+            className="flex items-center gap-2 text-sm text-pokemon-blue hover:text-blue-700 disabled:opacity-50"
+          >
+            <RefreshCcw size={16} className={isLoading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Milestones Progress */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <Target className="text-blue-600 dark:text-blue-400" size={24} />
+      {/* Overview Tab */}
+      {activeTab === 'overview' && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Milestones Progress */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  <Target className="text-blue-600 dark:text-blue-400" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Milestones</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Track your progress</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {milestones.map((milestone) => {
+                  const progress = getProgressPercentage(milestone.current, milestone.target);
+                  return (
+                    <div key={milestone.id} className={`relative ${milestone.achieved ? 'opacity-60' : ''}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {milestone.icon}
+                          <span className="font-medium text-gray-800 dark:text-gray-200 text-sm">{milestone.title}</span>
+                          {milestone.achieved && <CheckCircle2 className="text-green-500" size={16} />}
+                        </div>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {formatNumber(milestone.current)} / {formatNumber(milestone.target)}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${milestone.achieved ? 'bg-green-500' : 'bg-gradient-to-r from-pokemon-blue to-blue-400'}`}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {nextMilestone && (
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 font-medium mb-1">
+                    <Zap size={16} />
+                    Next Goal
+                  </div>
+                  <p className="text-sm text-blue-600 dark:text-blue-400">
+                    {nextMilestone.title} - Only {formatNumber(nextMilestone.target - nextMilestone.current)} {nextMilestone.unit} to go!
+                  </p>
+                </div>
+              )}
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Milestones</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Track your progress</p>
+
+            {/* Achievements */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                  <Trophy className="text-yellow-600 dark:text-yellow-400" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Achievements</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{unlockedCount} of {achievements.length} unlocked</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {achievements.map((achievement) => (
+                  <div
+                    key={achievement.id}
+                    className={`relative p-3 rounded-xl border text-center transition-all ${
+                      achievement.locked
+                        ? 'bg-gray-100 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 opacity-50'
+                        : 'bg-gradient-to-b from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-yellow-200 dark:border-yellow-800'
+                    }`}
+                    title={achievement.description}
+                  >
+                    <div className={`mx-auto mb-2 ${achievement.locked ? 'grayscale' : ''}`}>{achievement.icon}</div>
+                    <div className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{achievement.title}</div>
+                    {achievement.locked && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-2xl opacity-30">🔒</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="space-y-4">
-            {milestones.map((milestone) => {
-              const progress = getProgressPercentage(milestone.current, milestone.target);
+          {/* Motivational Quote */}
+          <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-6 text-white relative overflow-hidden">
+            <div className="absolute inset-0 bg-black/10"></div>
+            <Heart className="absolute right-4 top-4 opacity-20" size={64} />
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-3 text-white/80">
+                <Sparkles size={18} />
+                <span className="text-sm font-medium">Daily Motivation</span>
+              </div>
+              <blockquote className="text-xl sm:text-2xl font-bold mb-2">"{quotes[currentQuote].text}"</blockquote>
+              <p className="text-white/80 text-sm">- {quotes[currentQuote].author}</p>
+            </div>
+            <div className="flex justify-center gap-2 mt-4">
+              {quotes.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentQuote(idx)}
+                  className={`w-2 h-2 rounded-full transition-all ${currentQuote === idx ? 'bg-white w-4' : 'bg-white/40 hover:bg-white/60'}`}
+                />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Calendar Tab */}
+      {activeTab === 'calendar' && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                <CalendarDays className="text-indigo-600 dark:text-indigo-400" size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Upload Calendar</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Your video publishing history</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1))}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <span className="font-medium text-gray-800 dark:text-gray-200 min-w-[140px] text-center">
+                {monthNames[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}
+              </span>
+              <button
+                onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1))}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Calendar Grid */}
+          <div className="grid grid-cols-7 gap-1 mb-2">
+            {dayNames.map(day => (
+              <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-2">
+                {day}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {getCalendarDays().map((day, idx) => {
+              const isCurrentMonth = day.date.getMonth() === calendarMonth.getMonth();
+              const isToday = day.date.toDateString() === new Date().toDateString();
+              const hasVideos = day.videos.length > 0;
+
               return (
-                <div key={milestone.id} className={`relative ${milestone.achieved ? 'opacity-60' : ''}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      {milestone.icon}
-                      <span className="font-medium text-gray-800 dark:text-gray-200 text-sm">
-                        {milestone.title}
-                      </span>
-                      {milestone.achieved && (
-                        <CheckCircle2 className="text-green-500" size={16} />
-                      )}
-                    </div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {formatNumber(milestone.current)} / {formatNumber(milestone.target)}
-                    </span>
+                <div
+                  key={idx}
+                  className={`min-h-[80px] p-2 rounded-lg border transition-all ${
+                    !isCurrentMonth
+                      ? 'bg-gray-50 dark:bg-gray-900/50 border-transparent opacity-40'
+                      : isToday
+                      ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'
+                      : hasVideos
+                      ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
+                      : 'bg-gray-50 dark:bg-gray-700/30 border-gray-200 dark:border-gray-600'
+                  }`}
+                >
+                  <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {day.date.getDate()}
                   </div>
-                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        milestone.achieved
-                          ? 'bg-green-500'
-                          : 'bg-gradient-to-r from-pokemon-blue to-blue-400'
-                      }`}
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
+                  {day.videos.map((video, vIdx) => (
+                    <a
+                      key={vIdx}
+                      href={`https://youtube.com/watch?v=${video.videoId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-xs bg-red-500 text-white rounded px-1 py-0.5 truncate hover:bg-red-600 mb-1"
+                      title={video.title}
+                    >
+                      <Play size={10} className="inline mr-1" />
+                      {video.title.substring(0, 15)}...
+                    </a>
+                  ))}
                 </div>
               );
             })}
           </div>
 
-          {nextMilestone && (
-            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 font-medium mb-1">
-                <Zap size={16} />
-                Next Goal
+          {/* Suggested Upload Schedule */}
+          {analytics && analytics.suggestedNextUpload && (
+            <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-500 rounded-lg">
+                  <Zap className="text-white" size={20} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-green-800 dark:text-green-200">Suggested Next Upload</h4>
+                  <p className="text-sm text-green-600 dark:text-green-400">
+                    Based on your upload pattern (every ~{analytics.uploadFrequency} days), consider uploading on{' '}
+                    <strong>{analytics.suggestedNextUpload.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</strong>
+                  </p>
+                </div>
               </div>
-              <p className="text-sm text-blue-600 dark:text-blue-400">
-                {nextMilestone.title} - Only {formatNumber(nextMilestone.target - nextMilestone.current)} {nextMilestone.unit} to go!
-              </p>
             </div>
           )}
         </div>
+      )}
 
-        {/* Achievements */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-              <Trophy className="text-yellow-600 dark:text-yellow-400" size={24} />
+      {/* Analytics Tab */}
+      {activeTab === 'analytics' && analytics && (
+        <div className="space-y-6">
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
+                <Flame size={16} />
+                <span className="text-sm">Current Streak</span>
+              </div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.currentStreak} weeks</div>
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Achievements</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {unlockedCount} of {achievements.length} unlocked
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
+                <Trophy size={16} />
+                <span className="text-sm">Best Streak</span>
+              </div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.longestStreak} weeks</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
+                <Eye size={16} />
+                <span className="text-sm">Avg Views/Video</span>
+              </div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(analytics.averageViewsPerVideo)}</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
+                <Calendar size={16} />
+                <span className="text-sm">Upload Frequency</span>
+              </div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">Every {analytics.uploadFrequency}d</div>
+            </div>
+          </div>
+
+          {/* Trend & Best Day */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`p-2 rounded-lg ${
+                  analytics.recentTrend === 'growing' ? 'bg-green-100 dark:bg-green-900/30' :
+                  analytics.recentTrend === 'declining' ? 'bg-red-100 dark:bg-red-900/30' :
+                  'bg-gray-100 dark:bg-gray-700'
+                }`}>
+                  {analytics.recentTrend === 'growing' ? <TrendingUp className="text-green-600" size={24} /> :
+                   analytics.recentTrend === 'declining' ? <TrendingDown className="text-red-600" size={24} /> :
+                   <Minus className="text-gray-600" size={24} />}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Channel Trend</h3>
+                  <p className={`text-sm font-medium ${
+                    analytics.recentTrend === 'growing' ? 'text-green-600' :
+                    analytics.recentTrend === 'declining' ? 'text-red-600' :
+                    'text-gray-500'
+                  }`}>
+                    {analytics.recentTrend === 'growing' ? 'Growing! Keep it up!' :
+                     analytics.recentTrend === 'declining' ? 'Views declining - try new content?' :
+                     'Stable performance'}
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Based on comparing your last 10 videos to the previous 10.
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                  <Star className="text-purple-600 dark:text-purple-400" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Best Upload Day</h3>
+                  <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">{analytics.bestPerformingDay}</p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Videos uploaded on {analytics.bestPerformingDay} get the most views on average.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {achievements.map((achievement) => (
-              <div
-                key={achievement.id}
-                className={`relative p-3 rounded-xl border text-center transition-all ${
-                  achievement.locked
-                    ? 'bg-gray-100 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 opacity-50'
-                    : 'bg-gradient-to-b from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-yellow-200 dark:border-yellow-800'
-                }`}
-              >
-                <div className={`mx-auto mb-2 ${achievement.locked ? 'grayscale' : ''}`}>
-                  {achievement.icon}
-                </div>
-                <div className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">
-                  {achievement.title}
-                </div>
-                {!achievement.locked && achievement.unlockedAt && (
-                  <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                    {achievement.unlockedAt}
+          {/* Upload Distribution by Day */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Uploads by Day of Week</h3>
+            <div className="grid grid-cols-7 gap-2">
+              {Object.entries(analytics.uploadsByDayOfWeek).map(([day, count]) => {
+                const maxCount = Math.max(...Object.values(analytics.uploadsByDayOfWeek));
+                const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                return (
+                  <div key={day} className="text-center">
+                    <div className="h-24 flex items-end justify-center mb-2">
+                      <div
+                        className="w-8 bg-gradient-to-t from-pokemon-red to-red-400 rounded-t-lg transition-all"
+                        style={{ height: `${Math.max(height, 5)}%` }}
+                      />
+                    </div>
+                    <div className="text-xs font-medium text-gray-600 dark:text-gray-400">{day.substring(0, 3)}</div>
+                    <div className="text-sm font-bold text-gray-900 dark:text-white">{count}</div>
                   </div>
-                )}
-                {achievement.locked && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-2xl opacity-30">🔒</span>
-                  </div>
-                )}
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Top Videos */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                <Play className="text-red-600 dark:text-red-400" size={24} />
               </div>
-            ))}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Top Performing Videos</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Your most viewed content</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {analytics.topVideos.map((video, idx) => (
+                <a
+                  key={video.videoId}
+                  href={`https://youtube.com/watch?v=${video.videoId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
+                >
+                  <div className="text-2xl font-bold text-gray-300 dark:text-gray-600 w-8">#{idx + 1}</div>
+                  <img
+                    src={video.thumbnail}
+                    alt={video.title}
+                    className="w-24 h-14 object-cover rounded-lg"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-gray-900 dark:text-white truncate">{video.title}</h4>
+                    <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                      <span className="flex items-center gap-1">
+                        <Eye size={14} />
+                        {formatNumber(video.viewCount)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <ThumbsUp size={14} />
+                        {formatNumber(video.likeCount)}
+                      </span>
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Motivational Quote */}
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-6 text-white relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <Heart className="absolute right-4 top-4 opacity-20" size={64} />
-
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-3 text-white/80">
-            <Sparkles size={18} />
-            <span className="text-sm font-medium">Daily Motivation</span>
-          </div>
-          <blockquote className="text-xl sm:text-2xl font-bold mb-2">
-            "{quotes[currentQuote].text}"
-          </blockquote>
-          <p className="text-white/80 text-sm">- {quotes[currentQuote].author}</p>
-        </div>
-
-        {/* Quote navigation dots */}
-        <div className="flex justify-center gap-2 mt-4">
-          {quotes.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setCurrentQuote(idx)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                currentQuote === idx ? 'bg-white w-4' : 'bg-white/40 hover:bg-white/60'
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Growth Tips */}
+      {/* Growth Tips (visible on all tabs) */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
@@ -608,11 +828,9 @@ const YouTubeMotivation: React.FC = () => {
 
       {/* Channel Link CTA */}
       <div className="text-center py-4">
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-          Keep pushing forward! Your content matters.
-        </p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Keep pushing forward! Your content matters.</p>
         <a
-          href="https://www.youtube.com/@PokeBim"
+          href={`https://www.youtube.com/${CHANNEL_HANDLE}`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 text-pokemon-red hover:text-red-700 font-medium"
