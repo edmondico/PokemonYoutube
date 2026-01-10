@@ -11,13 +11,14 @@ import { SettingsPage } from './components/SettingsPage';
 import { ContentAnalyzer } from './components/ContentAnalyzer';
 import { ScriptEnhancer } from './components/ScriptEnhancer';
 import { YouTubeMotivation } from './components/YouTubeMotivation';
+import { Dashboard } from './components/Dashboard';
 import { VideoIdea, SearchState, NicheType, IdeaStatus, Theme } from './types';
-import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2, Database, Settings, Dices, ListTodo, Target, Wand2, Menu, X, Youtube } from 'lucide-react';
+import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2, Database, Settings, Dices, ListTodo, Target, Wand2, Menu, X, Youtube, Home } from 'lucide-react';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [theme, setTheme] = useState<Theme>('dark');
-  const [activeView, setActiveView] = useState<'search' | 'planner' | 'checklist' | 'analyzer' | 'enhancer' | 'motivation' | 'settings'>('search');
+  const [activeView, setActiveView] = useState<'dashboard' | 'search' | 'planner' | 'checklist' | 'analyzer' | 'enhancer' | 'motivation' | 'settings'>('dashboard');
   const [selectedNiche, setSelectedNiche] = useState<NicheType>(NicheType.INVESTING);
   const [globalAiInstructions, setGlobalAiInstructions] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -265,7 +266,7 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 shadow-sm transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setActiveView('search'); setMobileMenuOpen(false); }}>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setActiveView('dashboard'); setMobileMenuOpen(false); }}>
             <div className="bg-pokemon-red text-white p-1.5 rounded-lg shadow-md">
               <Sparkles size={20} />
             </div>
@@ -275,6 +276,13 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2 sm:gap-4">
              {/* Desktop Navigation */}
              <div className="hidden lg:flex gap-1 xl:gap-2">
+                <button
+                    onClick={() => setActiveView('dashboard')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'dashboard' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                >
+                    <Home size={16} />
+                    <span className="hidden xl:inline">Home</span>
+                </button>
                 <button
                     onClick={() => setActiveView('search')}
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'search' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
@@ -353,6 +361,13 @@ const App: React.FC = () => {
           <div className="lg:hidden bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 animate-fade-in">
             <nav className="max-w-7xl mx-auto px-4 py-3 grid grid-cols-2 gap-2">
               <button
+                onClick={() => { setActiveView('dashboard'); setMobileMenuOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeView === 'dashboard' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
+              >
+                <Home size={18} />
+                Home
+              </button>
+              <button
                 onClick={() => { setActiveView('search'); setMobileMenuOpen(false); }}
                 className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeView === 'search' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
               >
@@ -408,6 +423,14 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* VIEW: DASHBOARD */}
+        {activeView === 'dashboard' && (
+          <Dashboard
+            savedIdeas={savedIdeas}
+            onNavigate={(view) => setActiveView(view)}
+          />
+        )}
 
         {/* VIEW: PLANNER */}
         {activeView === 'planner' && (

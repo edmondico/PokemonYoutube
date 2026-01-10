@@ -127,17 +127,22 @@ export const generateScriptPrompt = (
  */
 export const generateAnalyzerPrompt = (title: string, hasImage: boolean): string => {
   return `
-    Act as a harsh but fair YouTube Algorithm Expert and Professional Editor.
-    I will provide a Title ${hasImage ? 'and a Thumbnail image' : ''}.
+    Act as a harsh but fair YouTube Algorithm Expert and Professional Editor specializing in the POKEMON content niche (TCG, Collecting, Investing, Gaming).
+
+    I will provide a Title ${hasImage ? 'and a Thumbnail image' : ''} for a POKEMON YouTube channel.
 
     Title: "${title}"
-    
+
+    Context: This is for a Pokemon YouTube channel targeting collectors, investors, and TCG players in the US/Global market.
+
     Your task:
-    1. Analyze the Viral Potential (CTR and Curiosity Gap).
-    2. Identify specific Strengths (what makes it click).
-    3. Identify specific Weaknesses (is it boring? confusing? too long?).
-    4. Suggest 3 Alternative Titles that are significantly better (more punchy, better curiosity gap).
-    5. Give specific improvement tips.
+    1. Analyze the Viral Potential (CTR and Curiosity Gap) specifically for the Pokemon community.
+    2. Identify specific Strengths (what makes it click for Pokemon fans).
+    3. Identify specific Weaknesses (is it boring? confusing? too long? does it resonate with Pokemon collectors/investors?).
+    4. Suggest 3 Alternative Titles that are significantly better (more punchy, better curiosity gap, Pokemon-specific hooks).
+    5. Give specific improvement tips for Pokemon content creators.
+
+    ${hasImage ? 'For the thumbnail: Analyze if it follows Pokemon YouTube best practices (bright colors, card close-ups, emotional reactions, value indicators like prices).' : ''}
 
     Return the response STRICTLY in the following JSON format:
     \`\`\`json
@@ -152,7 +157,7 @@ export const generateAnalyzerPrompt = (title: string, hasImage: boolean): string
     \`\`\`
 
     Possible predictions: "Viral", "High Performing", "Average", "Low Potential".
-    Score should be 0-100 based on likelihood to get >10% CTR.
+    Score should be 0-100 based on likelihood to get >10% CTR in the Pokemon niche.
   `;
 };
 
@@ -161,23 +166,27 @@ export const generateAnalyzerPrompt = (title: string, hasImage: boolean): string
  */
 export const generateEnhancerPrompt = (script: string): string => {
   return `
-    Act as a professional YouTube Script Doctor and Storyteller.
-    I will provide a draft script or bullet points.
+    Act as a professional YouTube Script Doctor and Storyteller specializing in POKEMON content (TCG, Collecting, Investing, Gaming).
+
+    I will provide a draft script or bullet points for a POKEMON YouTube video.
 
     Input Script:
     "${script.substring(0, 5000)}..."
 
+    Context: This is for a Pokemon YouTube channel targeting collectors, investors, and TCG players. The tone should match successful Pokemon YouTubers (enthusiastic about pulls, knowledgeable about card values, passionate about the hobby).
+
     Your task:
-    1. Rewrite the content to improve flow, retention, and engagement.
-    2. Make the HOOK (first 30s) extremely compelling.
-    3. Add "Pattern Interrupts" or visual cues instructions [Visual: ...] where appropriate.
-    4. Ensure the tone is energetic but authentic.
+    1. Rewrite the content to improve flow, retention, and engagement for Pokemon fans.
+    2. Make the HOOK (first 30s) extremely compelling - use Pokemon-specific hooks (rare cards, big pulls, market insights, nostalgia).
+    3. Add "Pattern Interrupts" or visual cues instructions [Visual: Show card close-up] [B-Roll: Price chart] where appropriate.
+    4. Ensure the tone is energetic, knowledgeable, and authentic to the Pokemon community.
+    5. Include calls-to-action relevant to Pokemon content (like, subscribe, check card prices below, etc.).
 
     Return the response STRICTLY in the following JSON format:
     \`\`\`json
     {
       "improvedScript": "markdown string...",
-      "changesMade": ["Added a stronger hook", "Removed fluff in intro", "..."],
+      "changesMade": ["Added a stronger Pokemon-specific hook", "Added card value context", "..."],
       "hookScore": 85,
       "pacingScore": 90,
       "estimatedDuration": "8-10 minutes"
