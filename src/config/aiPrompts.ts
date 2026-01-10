@@ -86,7 +86,12 @@ export const generateSearchPrompt = (
       ],
       "most_searched": [
         { "title": "...", "description": "...", "category": "Investing", "viralScore": 85, "competition": "High", "reasoning": "...", "tags": ["..."] }
-      ]
+      ],
+      "analytics": {
+        "google_keywords": [ { "keyword": "...", "volume": 85 } ],
+        "youtube_keywords": [ { "keyword": "...", "volume": 75 } ],
+        "rising_trends": [ { "keyword": "...", "volume": 95 } ]
+      }
     }
     \`\`\`
   `;

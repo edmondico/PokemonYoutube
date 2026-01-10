@@ -52,6 +52,11 @@ export const generateVideoIdeas = async (
       videoIdeas: processList(data.video_ideas),
       trending: processList(data.trending),
       mostSearched: processList(data.most_searched),
+      analytics: data.analytics ? {
+        googleKeywords: data.analytics.google_keywords || [],
+        youtubeKeywords: data.analytics.youtube_keywords || [],
+        risingTrends: data.analytics.rising_trends || []
+      } : null,
       groundingSources: sources
     };
 

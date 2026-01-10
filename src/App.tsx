@@ -9,12 +9,12 @@ import { ScriptModal } from './components/ScriptModal';
 import { TasksChecklist } from './components/TasksChecklist';
 import { SettingsPage } from './components/SettingsPage';
 import { VideoIdea, SearchState, NicheType, IdeaStatus, Theme } from './types';
-import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2, Database, Settings, Dices } from 'lucide-react';
+import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2, Database, Settings, Dices, ListTodo } from 'lucide-react';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [theme, setTheme] = useState<Theme>('dark');
-  const [activeView, setActiveView] = useState<'search' | 'planner' | 'settings'>('search');
+  const [activeView, setActiveView] = useState<'search' | 'planner' | 'checklist' | 'settings'>('search');
   const [selectedNiche, setSelectedNiche] = useState<NicheType>(NicheType.INVESTING);
   const [globalAiInstructions, setGlobalAiInstructions] = useState('');
 
@@ -286,6 +286,13 @@ const App: React.FC = () => {
                     My Planner <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded text-xs">{savedIdeas.length}</span>
                 </button>
                 <button
+                    onClick={() => setActiveView('checklist')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'checklist' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                >
+                    <ListTodo size={18} />
+                    Tasks
+                </button>
+                <button
                     onClick={() => setActiveView('settings')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'settings' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                 >
@@ -317,7 +324,7 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col lg:flex-row gap-6">
-                    {/* Left: Kanban Board (Flexible Width) */}
+                    {/* Planner Board (Full Width) */}
                     <div className="flex-1 min-w-0">
                          <PlannerBoard
                             ideas={savedIdeas}
@@ -327,11 +334,20 @@ const App: React.FC = () => {
                             onManualAdd={handleManualAdd}
                         />
                     </div>
+                </div>
+             </div>
+        )}
 
-                    {/* Right: Tasks Checklist (Fixed Width on Desktop) */}
-                    <div className="w-full lg:w-96 flex-shrink-0">
-                        <TasksChecklist />
-                    </div>
+        {/* VIEW: CHECKLIST */}
+        {activeView === 'checklist' && (
+             <div className="animate-fade-in">
+                <div className="mb-8">
+                    <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-2">Daily Tasks</h2>
+                    <p className="text-gray-600 dark:text-gray-400">Stay organized with your daily content creation goals.</p>
+                </div>
+
+                <div className="max-w-3xl mx-auto">
+                    <TasksChecklist />
                 </div>
              </div>
         )}
@@ -487,7 +503,7 @@ const App: React.FC = () => {
                     <div className="flex flex-col md:flex-row gap-6">
                         {/* Stats Chart */}
                         <div className="w-full md:w-2/3">
-                            <StatsChart ideas={currentSearchList} />
+                            <StatsChart ideas={currentSearchList} analytics={state.analytics} />
                         </div>
 
                         {/* Summary / Stats */}

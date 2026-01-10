@@ -31,6 +31,11 @@ export interface Task {
   completedAt?: string | null;
 }
 
+export interface AnalyticsItem {
+  keyword: string;
+  volume: number; // 0-100 relative score
+}
+
 export interface SearchState {
   loading: boolean;
   error: string | null;
@@ -38,6 +43,11 @@ export interface SearchState {
   videoIdeas: VideoIdea[] | null;    // ORIGINAL: General Ideas
   trending: VideoIdea[] | null;      // NEW: Viral Now
   mostSearched: VideoIdea[] | null;  // NEW: SEO / Search Volume
+  analytics?: {
+    googleKeywords: AnalyticsItem[];
+    youtubeKeywords: AnalyticsItem[];
+    risingTrends: AnalyticsItem[];
+  } | null;
   groundingSources: Array<{ uri: string; title: string }> | null;
 }
 
