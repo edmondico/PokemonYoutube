@@ -54,11 +54,10 @@ export const generateVideoIdeas = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json"
+        tools: [{ googleSearch: {} }]
       },
     });
 
@@ -117,7 +116,7 @@ export const generateScript = async (idea: VideoIdea): Promise<string> => {
     `;
 
     const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.5-flash',
         contents: prompt,
     });
 

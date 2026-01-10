@@ -21,6 +21,16 @@ export interface TodoItem {
   completed: boolean;
 }
 
+// New Task type with date support
+export interface Task {
+  id: string;
+  text: string;
+  completed: boolean;
+  date: string; // YYYY-MM-DD format
+  createdAt?: string;
+  completedAt?: string | null;
+}
+
 export interface SearchState {
   loading: boolean;
   error: string | null;

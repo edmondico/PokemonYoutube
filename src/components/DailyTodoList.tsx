@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TodoItem } from '../types';
-import { Plus, CheckSquare, Square, Trash2, Calendar, Sun, Moon } from 'lucide-react';
+import { Plus, CheckSquare, Square, Trash2, Calendar } from 'lucide-react';
 
 interface DailyTodoListProps {
   todos: TodoItem[];

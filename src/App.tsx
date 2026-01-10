@@ -1,42 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { generateVideoIdeas, generateScript } from './services/geminiService';
+import * as db from './services/supabaseService';
 import { IdeaCard } from './components/IdeaCard';
 import { StatsChart } from './components/StatsChart';
 import { PlannerBoard } from './components/PlannerBoard';
 import { ScriptModal } from './components/ScriptModal';
-import { DailyTodoList } from './components/DailyTodoList';
-import { VideoIdea, SearchState, NicheType, IdeaStatus, TodoItem, Theme } from './types';
-import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2 } from 'lucide-react';
+import { TasksChecklist } from './components/TasksChecklist';
+import { VideoIdea, SearchState, NicheType, IdeaStatus, Theme } from './types';
+import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2, Database } from 'lucide-react';
 
 const App: React.FC = () => {
+  const [isLoading, setIsLoading] = useState(true);
   const [theme, setTheme] = useState<Theme>('light');
   const [activeView, setActiveView] = useState<'search' | 'planner'>('search');
   const [selectedNiche, setSelectedNiche] = useState<NicheType>(NicheType.INVESTING);
-  
+
   // Custom Instructions State
   const [showCustomInstructions, setShowCustomInstructions] = useState(false);
   const [customInstructions, setCustomInstructions] = useState('');
 
   // Tab State: Supports 4 types now
   const [searchTab, setSearchTab] = useState<'outliers' | 'videoIdeas' | 'trending' | 'mostSearched'>('outliers');
-  
-  // Persist saved ideas
-  const [savedIdeas, setSavedIdeas] = useState<VideoIdea[]>(() => {
-    const saved = localStorage.getItem('pokeTrend_saved');
-    return saved ? JSON.parse(saved) : [];
-  });
 
-  // Persist Daily Todos (Today)
-  const [dailyTodos, setDailyTodos] = useState<TodoItem[]>(() => {
-    const todos = localStorage.getItem('pokeTrend_todos');
-    return todos ? JSON.parse(todos) : [];
-  });
-
-  // Persist Tomorrow Todos
-  const [tomorrowTodos, setTomorrowTodos] = useState<TodoItem[]>(() => {
-    const todos = localStorage.getItem('pokeTrend_todos_tomorrow');
-    return todos ? JSON.parse(todos) : [];
-  });
+  // Persist saved ideas (loaded from Supabase)
+  const [savedIdeas, setSavedIdeas] = useState<VideoIdea[]>([]);
 
   // Track Disliked Ideas for "Training"
   const [dislikedIdeas, setDislikedIdeas] = useState<string[]>([]);
@@ -58,10 +45,29 @@ const App: React.FC = () => {
     content: ''
   });
 
-  // Effects for Persistence
-  useEffect(() => { localStorage.setItem('pokeTrend_saved', JSON.stringify(savedIdeas)); }, [savedIdeas]);
-  useEffect(() => { localStorage.setItem('pokeTrend_todos', JSON.stringify(dailyTodos)); }, [dailyTodos]);
-  useEffect(() => { localStorage.setItem('pokeTrend_todos_tomorrow', JSON.stringify(tomorrowTodos)); }, [tomorrowTodos]);
+  // Initialize Supabase and load data
+  useEffect(() => {
+    const initializeData = async () => {
+      try {
+        await db.initDB();
+        await db.migrateFromLocalStorage();
+
+        const [ideas, disliked] = await Promise.all([
+          db.getSavedIdeas(),
+          db.getDislikedIdeas()
+        ]);
+
+        setSavedIdeas(ideas);
+        setDislikedIdeas(disliked);
+      } catch (error) {
+        console.error('Failed to load data from Supabase:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeData();
+  }, []);
 
   // Dark Mode Logic
   useEffect(() => {
@@ -83,6 +89,16 @@ const App: React.FC = () => {
     try {
       const result = await generateVideoIdeas(nicheToSearch, dislikedIdeas, showCustomInstructions ? customInstructions : "");
       setState(result);
+
+      // Save search to history
+      await db.saveSearchResult(
+        nicheToSearch,
+        result.outliers || [],
+        result.videoIdeas || [],
+        result.trending || [],
+        result.mostSearched || []
+      );
+
       // Default to Outliers on new search
       setSearchTab('outliers');
       setActiveView('search');
@@ -97,18 +113,22 @@ const App: React.FC = () => {
 
   // --- Actions ---
 
-  const handleSaveIdea = (idea: VideoIdea) => {
+  const handleSaveIdea = useCallback(async (idea: VideoIdea) => {
     if (savedIdeas.find(i => i.id === idea.id)) return;
     const newIdea = { ...idea, status: 'saved' as IdeaStatus, createdAt: Date.now() };
-    setSavedIdeas(prev => [newIdea, ...prev]);
-  };
 
-  const handleDislikeIdea = (idea: VideoIdea) => {
-    setDislikedIdeas(prev => [...prev, idea.title]);
-    
+    setSavedIdeas(prev => [newIdea, ...prev]);
+    await db.saveIdea(newIdea);
+  }, [savedIdeas]);
+
+  const handleDislikeIdea = useCallback(async (idea: VideoIdea) => {
+    const newDisliked = [...dislikedIdeas, idea.title];
+    setDislikedIdeas(newDisliked);
+    await db.addDislikedIdea(idea.title);
+
     // Remove from ALL lists in state to be safe
     const filterList = (list: VideoIdea[] | null) => list ? list.filter(i => i.id !== idea.id) : null;
-    
+
     setState(prev => ({
         ...prev,
         outliers: filterList(prev.outliers),
@@ -116,9 +136,9 @@ const App: React.FC = () => {
         trending: filterList(prev.trending),
         mostSearched: filterList(prev.mostSearched),
     }));
-  };
+  }, [dislikedIdeas]);
 
-  const handleManualAdd = (title: string, description: string) => {
+  const handleManualAdd = useCallback(async (title: string, description: string) => {
     const newIdea: VideoIdea = {
         id: Math.random().toString(36).substr(2, 9),
         title,
@@ -131,16 +151,21 @@ const App: React.FC = () => {
         status: 'saved',
         createdAt: Date.now()
     };
+
     setSavedIdeas(prev => [newIdea, ...prev]);
-  };
+    await db.saveIdea(newIdea);
+  }, []);
 
-  const handleDeleteIdea = (id: string) => {
+  const handleDeleteIdea = useCallback(async (id: string) => {
     setSavedIdeas(prev => prev.filter(i => i.id !== id));
-  };
+    await db.deleteIdea(id);
+  }, []);
 
-  const handleUpdateStatus = (idea: VideoIdea, status: IdeaStatus) => {
-    setSavedIdeas(prev => prev.map(i => i.id === idea.id ? { ...i, status } : i));
-  };
+  const handleUpdateStatus = useCallback(async (idea: VideoIdea, status: IdeaStatus) => {
+    const updatedIdea = { ...idea, status };
+    setSavedIdeas(prev => prev.map(i => i.id === idea.id ? updatedIdea : i));
+    await db.updateIdea(updatedIdea);
+  }, []);
 
   const handleGenerateScript = async (idea: VideoIdea) => {
     if (idea.script) {
@@ -150,12 +175,15 @@ const App: React.FC = () => {
 
     try {
         const script = await generateScript(idea);
-        
+
         // Update wherever it exists
         const updateList = (list: VideoIdea[] | null) => list?.map(i => i.id === idea.id ? { ...i, script } : i) || null;
-        
-        if (savedIdeas.find(i => i.id === idea.id)) {
-            setSavedIdeas(prev => prev.map(i => i.id === idea.id ? { ...i, script } : i));
+
+        const savedIdea = savedIdeas.find(i => i.id === idea.id);
+        if (savedIdea) {
+            const updatedIdea = { ...savedIdea, script };
+            setSavedIdeas(prev => prev.map(i => i.id === idea.id ? updatedIdea : i));
+            await db.updateIdea(updatedIdea);
         } else {
             setState(prev => ({
                 ...prev,
@@ -185,13 +213,25 @@ const App: React.FC = () => {
 
   const currentSearchList = getCurrentList();
 
+  // Loading screen while Supabase initializes
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <Database className="w-12 h-12 text-pokemon-blue mx-auto mb-4 animate-pulse" />
+          <p className="text-gray-600 dark:text-gray-400">Connecting to cloud database...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 pb-12 transition-colors duration-300">
-      <ScriptModal 
-        isOpen={modalData.isOpen} 
-        onClose={() => setModalData(prev => ({ ...prev, isOpen: false }))} 
-        title={modalData.title} 
-        content={modalData.content} 
+      <ScriptModal
+        isOpen={modalData.isOpen}
+        onClose={() => setModalData(prev => ({ ...prev, isOpen: false }))}
+        title={modalData.title}
+        content={modalData.content}
       />
 
       {/* Header */}
@@ -203,18 +243,18 @@ const App: React.FC = () => {
             </div>
             <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">PokeTrend <span className="text-pokemon-blue">AI</span></h1>
           </div>
-          
+
           <div className="flex items-center gap-4">
              {/* Navigation */}
              <div className="hidden md:flex gap-2">
-                <button 
+                <button
                     onClick={() => setActiveView('search')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'search' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                 >
                     <Search size={18} />
                     Find Ideas
                 </button>
-                <button 
+                <button
                     onClick={() => setActiveView('planner')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'planner' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                 >
@@ -224,7 +264,7 @@ const App: React.FC = () => {
              </div>
 
              {/* Theme Toggle */}
-             <button 
+             <button
                 onClick={toggleTheme}
                 className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 title="Toggle Dark Mode"
@@ -236,7 +276,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
+
         {/* VIEW: PLANNER */}
         {activeView === 'planner' && (
              <div className="animate-fade-in">
@@ -244,27 +284,22 @@ const App: React.FC = () => {
                     <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-2">My Content Planner</h2>
                     <p className="text-gray-600 dark:text-gray-400">Organize your chosen ideas from research to upload.</p>
                 </div>
-                
+
                 <div className="flex flex-col lg:flex-row gap-6">
                     {/* Left: Kanban Board (Flexible Width) */}
                     <div className="flex-1 min-w-0">
-                         <PlannerBoard 
-                            ideas={savedIdeas} 
-                            onUpdateStatus={handleUpdateStatus} 
+                         <PlannerBoard
+                            ideas={savedIdeas}
+                            onUpdateStatus={handleUpdateStatus}
                             onDelete={handleDeleteIdea}
                             onGenerateScript={handleGenerateScript}
                             onManualAdd={handleManualAdd}
                         />
                     </div>
-                    
-                    {/* Right: Daily ToDo (Fixed Width on Desktop) */}
-                    <div className="w-full lg:w-80 flex-shrink-0">
-                        <DailyTodoList 
-                            todos={dailyTodos} 
-                            setTodos={setDailyTodos}
-                            tomorrowTodos={tomorrowTodos}
-                            setTomorrowTodos={setTomorrowTodos}
-                        />
+
+                    {/* Right: Tasks Checklist (Fixed Width on Desktop) */}
+                    <div className="w-full lg:w-96 flex-shrink-0">
+                        <TasksChecklist />
                     </div>
                 </div>
              </div>
@@ -306,7 +341,7 @@ const App: React.FC = () => {
 
                         {/* Action Buttons */}
                         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-                            <button 
+                            <button
                                 onClick={() => handleSearch()}
                                 disabled={state.loading}
                                 className="w-full md:w-auto min-w-[240px] bg-pokemon-blue text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3"
@@ -324,7 +359,7 @@ const App: React.FC = () => {
                                 )}
                             </button>
 
-                            <button 
+                            <button
                                 onClick={() => handleSearch(NicheType.ALL)}
                                 disabled={state.loading}
                                 className="w-full md:w-auto min-w-[200px] bg-white dark:bg-gray-700 text-gray-800 dark:text-white border-2 border-pokemon-blue dark:border-pokemon-blue px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-50 dark:hover:bg-gray-600 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3"
@@ -337,9 +372,9 @@ const App: React.FC = () => {
                         {/* Custom Instructions */}
                         <div className="w-full max-w-lg mx-auto">
                             <div className="flex items-center justify-center gap-2 mb-3">
-                                <input 
-                                    type="checkbox" 
-                                    id="customInfo" 
+                                <input
+                                    type="checkbox"
+                                    id="customInfo"
                                     checked={showCustomInstructions}
                                     onChange={(e) => setShowCustomInstructions(e.target.checked)}
                                     className="w-4 h-4 text-pokemon-blue rounded border-gray-300 focus:ring-pokemon-blue cursor-pointer"
@@ -349,7 +384,7 @@ const App: React.FC = () => {
                                     Add Custom Instructions
                                 </label>
                             </div>
-                            
+
                             {showCustomInstructions && (
                                 <textarea
                                     value={customInstructions}
@@ -373,7 +408,7 @@ const App: React.FC = () => {
                 {/* Results Area */}
                 {currentSearchList && currentSearchList.length > 0 && (
                 <div className="space-y-8 animate-fade-in">
-                    
+
                     {/* Tabs */}
                     <div className="flex justify-center mb-6">
                         <div className="bg-gray-200 dark:bg-gray-800 p-1.5 rounded-xl flex flex-wrap justify-center gap-1">
@@ -388,7 +423,7 @@ const App: React.FC = () => {
                                     onClick={() => setSearchTab(tab.id as any)}
                                     className={`px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all ${
                                         searchTab === tab.id
-                                        ? 'bg-white dark:bg-gray-700 text-pokemon-blue dark:text-white shadow-sm' 
+                                        ? 'bg-white dark:bg-gray-700 text-pokemon-blue dark:text-white shadow-sm'
                                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                                     }`}
                                 >
@@ -435,9 +470,9 @@ const App: React.FC = () => {
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {currentSearchList.map((idea) => (
-                            <IdeaCard 
-                                key={idea.id} 
-                                idea={idea} 
+                            <IdeaCard
+                                key={idea.id}
+                                idea={idea}
                                 onSave={handleSaveIdea}
                                 onDislike={handleDislikeIdea}
                                 onGenerateScript={handleGenerateScript}
@@ -455,7 +490,7 @@ const App: React.FC = () => {
                         </h4>
                         <div className="flex flex-wrap gap-2">
                         {state.groundingSources.slice(0, 5).map((source, idx) => (
-                            <a 
+                            <a
                             key={idx}
                             href={source.uri}
                             target="_blank"
@@ -470,7 +505,7 @@ const App: React.FC = () => {
                     )}
                 </div>
                 )}
-                
+
                 {/* Empty State */}
                 {!state.loading && (!currentSearchList || currentSearchList.length === 0) && (
                 <div className="text-center py-20 opacity-50">
