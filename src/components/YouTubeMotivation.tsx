@@ -17,8 +17,10 @@ import {
   Clock,
   ArrowUp,
   Sparkles,
-  RefreshCcw
+  RefreshCcw,
+  AlertCircle
 } from 'lucide-react';
+import { fetchChannelByHandle } from '../services/youtubeService';
 
 interface ChannelStats {
   subscribers: number;
@@ -51,22 +53,59 @@ interface Achievement {
   locked: boolean;
 }
 
+const CHANNEL_HANDLE = '@PokeBim';
+
 const YouTubeMotivation: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
-  // Channel stats - can be updated with real API data later
-  const [stats] = useState<ChannelStats>({
-    subscribers: 1240,
-    totalViews: 89500,
-    totalVideos: 47,
-    channelName: 'PokeBim',
-    channelHandle: '@PokeBim',
-    profileImage: 'https://yt3.googleusercontent.com/ytc/AIdro_nQPz8Y2q3Y_Yr8V8G8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8Q8=s176-c-k-c0x00ffffff-no-rj',
+  const [stats, setStats] = useState<ChannelStats>({
+    subscribers: 0,
+    totalViews: 0,
+    totalVideos: 0,
+    channelName: 'Loading...',
+    channelHandle: CHANNEL_HANDLE,
+    profileImage: '',
     bannerImage: '',
-    joinDate: '2023',
-    country: 'Spain'
+    joinDate: '',
+    country: ''
   });
+
+  const loadChannelStats = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const channelData = await fetchChannelByHandle(CHANNEL_HANDLE);
+
+      if (channelData) {
+        setStats({
+          subscribers: channelData.subscribers,
+          totalViews: channelData.totalViews,
+          totalVideos: channelData.totalVideos,
+          channelName: channelData.channelName,
+          channelHandle: channelData.channelHandle,
+          profileImage: channelData.profileImage,
+          bannerImage: channelData.bannerImage,
+          joinDate: channelData.joinDate,
+          country: channelData.country
+        });
+        setLastUpdated(new Date());
+      } else {
+        setError('Could not load channel data. Check your YouTube API key.');
+      }
+    } catch (err) {
+      setError('Error connecting to YouTube API');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadChannelStats();
+  }, []);
 
   // Milestones progression
   const milestones: Milestone[] = [
@@ -219,12 +258,7 @@ const YouTubeMotivation: React.FC = () => {
   };
 
   const refreshStats = () => {
-    setIsLoading(true);
-    // Simulate API call - in the future, connect to YouTube API
-    setTimeout(() => {
-      setIsLoading(false);
-      setLastUpdated(new Date());
-    }, 1500);
+    loadChannelStats();
   };
 
   const unlockedCount = achievements.filter(a => !a.locked).length;
@@ -232,6 +266,23 @@ const YouTubeMotivation: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Error Banner */}
+      {error && (
+        <div className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-xl p-4 flex items-center gap-3">
+          <AlertCircle className="text-red-500" size={20} />
+          <div className="flex-1">
+            <p className="text-red-700 dark:text-red-300 font-medium">{error}</p>
+            <p className="text-red-600 dark:text-red-400 text-sm">Make sure YouTube Data API v3 is enabled in your Google Cloud project.</p>
+          </div>
+          <button
+            onClick={refreshStats}
+            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Channel Header */}
       <div className="bg-gradient-to-r from-red-600 via-pokemon-red to-red-700 rounded-2xl p-6 text-white relative overflow-hidden">
         <div className="absolute inset-0 bg-black/10"></div>
@@ -240,8 +291,12 @@ const YouTubeMotivation: React.FC = () => {
         <div className="relative z-10">
           <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
             {/* Profile */}
-            <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center border-4 border-white/30 shadow-lg">
-              <Youtube size={40} className="text-white" />
+            <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center border-4 border-white/30 shadow-lg overflow-hidden">
+              {stats.profileImage ? (
+                <img src={stats.profileImage} alt={stats.channelName} className="w-full h-full object-cover" />
+              ) : (
+                <Youtube size={40} className="text-white" />
+              )}
             </div>
 
             <div className="text-center sm:text-left flex-1">
