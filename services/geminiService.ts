@@ -8,17 +8,23 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 
 export const generateVideoIdeas = async (
   niche: NicheType,
-  dislikedContext: string[] = [] // List of titles/topics the user hated
+  dislikedContext: string[] = [], // List of titles/topics the user hated
+  customInstructions: string = "" // Optional custom user instructions
 ): Promise<SearchState> => {
   
   const negativeConstraint = dislikedContext.length > 0 
     ? `IMPORTANT: The user has explicitly DISLIKED the following topics/angles. DO NOT suggest anything similar to these: ${JSON.stringify(dislikedContext)}.` 
     : "";
 
+  const customContext = customInstructions.trim() 
+    ? `ADDITIONAL USER INSTRUCTIONS (PRIORITIZE THIS): ${customInstructions}` 
+    : "";
+
   const prompt = `
     Act as a YouTube Strategist expert in the ${niche} niche (US/Global Market).
     
     ${negativeConstraint}
+    ${customContext}
 
     Your goal is to generate FOUR distinct lists of content ideas based on REAL-TIME Google Search & YouTube trends.
     

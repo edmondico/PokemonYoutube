@@ -6,13 +6,17 @@ import { PlannerBoard } from './components/PlannerBoard';
 import { ScriptModal } from './components/ScriptModal';
 import { DailyTodoList } from './components/DailyTodoList';
 import { VideoIdea, SearchState, NicheType, IdeaStatus, TodoItem, Theme } from './types';
-import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun } from 'lucide-react';
+import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('light');
   const [activeView, setActiveView] = useState<'search' | 'planner'>('search');
   const [selectedNiche, setSelectedNiche] = useState<NicheType>(NicheType.INVESTING);
   
+  // Custom Instructions State
+  const [showCustomInstructions, setShowCustomInstructions] = useState(false);
+  const [customInstructions, setCustomInstructions] = useState('');
+
   // Tab State: Supports 4 types now
   const [searchTab, setSearchTab] = useState<'outliers' | 'videoIdeas' | 'trending' | 'mostSearched'>('outliers');
   
@@ -77,7 +81,7 @@ const App: React.FC = () => {
     const nicheToSearch = nicheOverride || selectedNiche;
 
     try {
-      const result = await generateVideoIdeas(nicheToSearch, dislikedIdeas);
+      const result = await generateVideoIdeas(nicheToSearch, dislikedIdeas, showCustomInstructions ? customInstructions : "");
       setState(result);
       // Default to Outliers on new search
       setSearchTab('outliers');
@@ -302,32 +306,59 @@ const App: React.FC = () => {
 
                         {/* Action Buttons */}
                         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-                        <button 
-                            onClick={() => handleSearch()}
-                            disabled={state.loading}
-                            className="w-full md:w-auto min-w-[240px] bg-pokemon-blue text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-                        >
-                            {state.loading ? (
-                            <>
-                                <RefreshCcw className="animate-spin" size={24} />
-                                Scanning...
-                            </>
-                            ) : (
-                            <>
-                                <Search size={24} />
-                                Scan {selectedNiche.replace('Pokemon ', '')}
-                            </>
-                            )}
-                        </button>
+                            <button 
+                                onClick={() => handleSearch()}
+                                disabled={state.loading}
+                                className="w-full md:w-auto min-w-[240px] bg-pokemon-blue text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                            >
+                                {state.loading ? (
+                                <>
+                                    <RefreshCcw className="animate-spin" size={24} />
+                                    Scanning...
+                                </>
+                                ) : (
+                                <>
+                                    <Search size={24} />
+                                    Scan {selectedNiche.replace('Pokemon ', '')}
+                                </>
+                                )}
+                            </button>
 
-                        <button 
-                            onClick={() => handleSearch(NicheType.ALL)}
-                            disabled={state.loading}
-                            className="w-full md:w-auto min-w-[200px] bg-white dark:bg-gray-700 text-gray-800 dark:text-white border-2 border-pokemon-blue dark:border-pokemon-blue px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-50 dark:hover:bg-gray-600 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-                        >
-                            <Globe size={24} className="text-pokemon-blue" />
-                            Scan Everything
-                        </button>
+                            <button 
+                                onClick={() => handleSearch(NicheType.ALL)}
+                                disabled={state.loading}
+                                className="w-full md:w-auto min-w-[200px] bg-white dark:bg-gray-700 text-gray-800 dark:text-white border-2 border-pokemon-blue dark:border-pokemon-blue px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-50 dark:hover:bg-gray-600 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                            >
+                                <Globe size={24} className="text-pokemon-blue" />
+                                Scan Everything
+                            </button>
+                        </div>
+
+                        {/* Custom Instructions */}
+                        <div className="w-full max-w-lg mx-auto">
+                            <div className="flex items-center justify-center gap-2 mb-3">
+                                <input 
+                                    type="checkbox" 
+                                    id="customInfo" 
+                                    checked={showCustomInstructions}
+                                    onChange={(e) => setShowCustomInstructions(e.target.checked)}
+                                    className="w-4 h-4 text-pokemon-blue rounded border-gray-300 focus:ring-pokemon-blue cursor-pointer"
+                                />
+                                <label htmlFor="customInfo" className="text-sm font-medium text-gray-600 dark:text-gray-300 cursor-pointer flex items-center gap-1.5">
+                                    <Settings2 size={14} />
+                                    Add Custom Instructions
+                                </label>
+                            </div>
+                            
+                            {showCustomInstructions && (
+                                <textarea
+                                    value={customInstructions}
+                                    onChange={(e) => setCustomInstructions(e.target.value)}
+                                    placeholder="E.g., 'Focus specifically on Japanese promo cards' or 'Avoid any PSA grading topics'..."
+                                    className="w-full p-3 text-sm border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:border-pokemon-blue dark:bg-gray-700/50 dark:text-white transition-all animate-fade-in resize-none"
+                                    rows={3}
+                                />
+                            )}
                         </div>
                     </div>
                 </div>
