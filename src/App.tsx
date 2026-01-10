@@ -1,19 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { generateVideoIdeas, generateScript } from './services/geminiService';
 import * as db from './services/supabaseService';
+import { AppSettings } from './services/supabaseService';
 import { IdeaCard } from './components/IdeaCard';
 import { StatsChart } from './components/StatsChart';
 import { PlannerBoard } from './components/PlannerBoard';
 import { ScriptModal } from './components/ScriptModal';
 import { TasksChecklist } from './components/TasksChecklist';
+import { SettingsPage } from './components/SettingsPage';
 import { VideoIdea, SearchState, NicheType, IdeaStatus, Theme } from './types';
-import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2, Database } from 'lucide-react';
+import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2, Database, Settings, Dices } from 'lucide-react';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [theme, setTheme] = useState<Theme>('light');
-  const [activeView, setActiveView] = useState<'search' | 'planner'>('search');
+  const [theme, setTheme] = useState<Theme>('dark');
+  const [activeView, setActiveView] = useState<'search' | 'planner' | 'settings'>('search');
   const [selectedNiche, setSelectedNiche] = useState<NicheType>(NicheType.INVESTING);
+  const [globalAiInstructions, setGlobalAiInstructions] = useState('');
 
   // Custom Instructions State
   const [showCustomInstructions, setShowCustomInstructions] = useState(false);
@@ -52,13 +55,18 @@ const App: React.FC = () => {
         await db.initDB();
         await db.migrateFromLocalStorage();
 
-        const [ideas, disliked] = await Promise.all([
+        const [ideas, disliked, settings] = await Promise.all([
           db.getSavedIdeas(),
-          db.getDislikedIdeas()
+          db.getDislikedIdeas(),
+          db.getAllSettings()
         ]);
 
         setSavedIdeas(ideas);
         setDislikedIdeas(disliked);
+
+        // Apply loaded settings
+        setTheme(settings.theme);
+        setGlobalAiInstructions(settings.aiInstructions);
       } catch (error) {
         console.error('Failed to load data from Supabase:', error);
       } finally {
@@ -78,16 +86,32 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  const toggleTheme = async () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    await db.setSetting('theme', newTheme);
+  };
+
+  const handleSettingsChange = (settings: AppSettings) => {
+    setTheme(settings.theme);
+    setGlobalAiInstructions(settings.aiInstructions);
   };
 
   const handleSearch = async (nicheOverride?: NicheType) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     const nicheToSearch = nicheOverride || selectedNiche;
 
+    // Combine global AI instructions with one-time custom instructions
+    const combinedInstructions = [
+      globalAiInstructions,
+      showCustomInstructions ? customInstructions : ''
+    ].filter(Boolean).join('\n\n');
+
     try {
-      const result = await generateVideoIdeas(nicheToSearch, dislikedIdeas, showCustomInstructions ? customInstructions : "");
+      const result = await generateVideoIdeas(nicheToSearch, dislikedIdeas, combinedInstructions);
+
+      // Track the search event
+      await db.trackEvent('search', { niche: nicheToSearch });
       setState(result);
 
       // Save search to history
@@ -261,6 +285,13 @@ const App: React.FC = () => {
                     <KanbanSquare size={18} />
                     My Planner <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded text-xs">{savedIdeas.length}</span>
                 </button>
+                <button
+                    onClick={() => setActiveView('settings')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'settings' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                >
+                    <Settings size={18} />
+                    Settings
+                </button>
              </div>
 
              {/* Theme Toggle */}
@@ -337,6 +368,25 @@ const App: React.FC = () => {
                                 {niche.replace('Pokemon ', '')}
                             </button>
                         ))}
+                        <button
+                            onClick={() => {
+                                const randomNiches = [
+                                    "Pokemon Plushies & Merchandise",
+                                    "Pokemon ROM Hacks & Fan Games",
+                                    "Pokemon Nuzlocke Challenges",
+                                    "Pokemon Sealed Product Investing",
+                                    "Pokemon Grading (PSA/BGS/CGC)",
+                                    "Pokemon Manga & Lore",
+                                    "Competitive Pokemon VGC"
+                                ];
+                                const random = randomNiches[Math.floor(Math.random() * randomNiches.length)];
+                                handleSearch(random as any);
+                            }}
+                            className="px-4 py-3 rounded-lg text-xs md:text-sm font-medium transition-all duration-200 border bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 hover:bg-purple-200 dark:hover:bg-purple-900/50 flex items-center justify-center gap-2"
+                        >
+                            <Dices size={16} />
+                            Surprise Me
+                        </button>
                         </div>
 
                         {/* Action Buttons */}
@@ -516,6 +566,15 @@ const App: React.FC = () => {
                 </div>
                 )}
             </div>
+        )}
+
+        {/* VIEW: SETTINGS */}
+        {activeView === 'settings' && (
+          <SettingsPage
+            theme={theme}
+            onThemeChange={setTheme}
+            onSettingsChange={handleSettingsChange}
+          />
         )}
 
       </main>

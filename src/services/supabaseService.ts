@@ -451,6 +451,181 @@ export const clearSearchHistory = async (): Promise<void> => {
   }
 };
 
+// ==================== SETTINGS ====================
+
+export interface AppSettings {
+  theme: 'light' | 'dark';
+  aiInstructions: string;
+  userApiKey: string;
+  defaultNiche: string;
+  language: string;
+}
+
+const DEFAULT_SETTINGS: AppSettings = {
+  theme: 'dark',
+  aiInstructions: '',
+  userApiKey: '',
+  defaultNiche: 'Pokemon Investing',
+  language: 'es',
+};
+
+export const getSetting = async <T>(key: string, defaultValue: T): Promise<T> => {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', key)
+    .single();
+
+  if (error || !data) {
+    return defaultValue;
+  }
+
+  return data.value as T;
+};
+
+export const setSetting = async <T>(key: string, value: T): Promise<void> => {
+  const { error } = await supabase
+    .from('settings')
+    .upsert({
+      key,
+      value,
+      updated_at: new Date().toISOString(),
+    });
+
+  if (error) {
+    console.error('Error saving setting:', error);
+  }
+};
+
+export const getAllSettings = async (): Promise<AppSettings> => {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('key, value');
+
+  if (error || !data) {
+    return DEFAULT_SETTINGS;
+  }
+
+  const settings = { ...DEFAULT_SETTINGS };
+  for (const row of data) {
+    switch (row.key) {
+      case 'theme':
+        settings.theme = row.value as 'light' | 'dark';
+        break;
+      case 'ai_instructions':
+        settings.aiInstructions = row.value as string;
+        break;
+      case 'user_api_key':
+        settings.userApiKey = row.value as string;
+        break;
+      case 'default_niche':
+        settings.defaultNiche = row.value as string;
+        break;
+      case 'language':
+        settings.language = row.value as string;
+        break;
+    }
+  }
+
+  return settings;
+};
+
+export const saveAllSettings = async (settings: AppSettings): Promise<void> => {
+  const entries = [
+    { key: 'theme', value: settings.theme },
+    { key: 'ai_instructions', value: settings.aiInstructions },
+    { key: 'user_api_key', value: settings.userApiKey },
+    { key: 'default_niche', value: settings.defaultNiche },
+    { key: 'language', value: settings.language },
+  ];
+
+  for (const entry of entries) {
+    await setSetting(entry.key, entry.value);
+  }
+};
+
+// ==================== STATISTICS ====================
+
+export type StatEventType = 'search' | 'idea_saved' | 'idea_completed' | 'script_generated' | 'task_completed';
+
+export const trackEvent = async (eventType: StatEventType, metadata?: Record<string, any>): Promise<void> => {
+  const { error } = await supabase
+    .from('statistics')
+    .insert({
+      event_type: eventType,
+      metadata: metadata || {},
+    });
+
+  if (error) {
+    console.error('Error tracking event:', error);
+  }
+};
+
+export const getStatistics = async (): Promise<{
+  totalSearches: number;
+  totalIdeasSaved: number;
+  totalIdeasCompleted: number;
+  totalScriptsGenerated: number;
+  totalTasksCompleted: number;
+  searchesByDay: Array<{ date: string; count: number }>;
+  recentActivity: Array<{ type: string; date: string; metadata?: any }>;
+}> => {
+  // Get counts
+  const { data: stats, error } = await supabase
+    .from('statistics')
+    .select('event_type, created_at, metadata')
+    .order('created_at', { ascending: false });
+
+  if (error || !stats) {
+    return {
+      totalSearches: 0,
+      totalIdeasSaved: 0,
+      totalIdeasCompleted: 0,
+      totalScriptsGenerated: 0,
+      totalTasksCompleted: 0,
+      searchesByDay: [],
+      recentActivity: [],
+    };
+  }
+
+  const counts = {
+    search: 0,
+    idea_saved: 0,
+    idea_completed: 0,
+    script_generated: 0,
+    task_completed: 0,
+  };
+
+  const searchesByDay: Record<string, number> = {};
+
+  for (const stat of stats) {
+    if (stat.event_type in counts) {
+      counts[stat.event_type as keyof typeof counts]++;
+    }
+
+    if (stat.event_type === 'search') {
+      const date = new Date(stat.created_at).toISOString().split('T')[0];
+      searchesByDay[date] = (searchesByDay[date] || 0) + 1;
+    }
+  }
+
+  return {
+    totalSearches: counts.search,
+    totalIdeasSaved: counts.idea_saved,
+    totalIdeasCompleted: counts.idea_completed,
+    totalScriptsGenerated: counts.script_generated,
+    totalTasksCompleted: counts.task_completed,
+    searchesByDay: Object.entries(searchesByDay)
+      .map(([date, count]) => ({ date, count }))
+      .slice(0, 30),
+    recentActivity: stats.slice(0, 20).map(s => ({
+      type: s.event_type,
+      date: s.created_at,
+      metadata: s.metadata,
+    })),
+  };
+};
+
 // ==================== INITIALIZATION ====================
 
 export const initDB = async (): Promise<void> => {

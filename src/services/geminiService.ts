@@ -8,7 +8,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 export const generateVideoIdeas = async (
-  niche: NicheType,
+  niche: NicheType | string,
   dislikedContext: string[] = [],
   customInstructions: string = ""
 ): Promise<SearchState> => {
