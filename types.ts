@@ -1,0 +1,42 @@
+export type IdeaStatus = 'saved' | 'scripting' | 'filming' | 'done';
+
+export interface VideoIdea {
+  id: string; // Unique ID for tracking
+  title: string;
+  description: string;
+  category: 'Investing' | 'Collecting' | 'Gameplay' | 'News' | 'Manual';
+  viralScore: number; // 0-100
+  competition: 'Low' | 'Medium' | 'High';
+  reasoning: string;
+  tags: string[];
+  status?: IdeaStatus; // For the planner
+  script?: string; // Generated script content
+  createdAt?: number;
+  isDisliked?: boolean; // For training the AI
+}
+
+export interface TodoItem {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
+export interface SearchState {
+  loading: boolean;
+  error: string | null;
+  outliers: VideoIdea[] | null;      // ORIGINAL: Market Anomalies
+  videoIdeas: VideoIdea[] | null;    // ORIGINAL: General Ideas
+  trending: VideoIdea[] | null;      // NEW: Viral Now
+  mostSearched: VideoIdea[] | null;  // NEW: SEO / Search Volume
+  groundingSources: Array<{ uri: string; title: string }> | null;
+}
+
+export enum NicheType {
+  ALL = 'Entire Pokemon Market (Investing, Collecting, Gameplay)',
+  INVESTING = 'Pokemon Investing',
+  COLLECTING = 'Pokemon Collecting',
+  TCG_PLAY = 'Pokemon TCG Meta/Gameplay',
+  VINTAGE = 'Vintage Pokemon Cards'
+}
+
+export type Theme = 'light' | 'dark';
