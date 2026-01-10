@@ -8,13 +8,15 @@ import { PlannerBoard } from './components/PlannerBoard';
 import { ScriptModal } from './components/ScriptModal';
 import { TasksChecklist } from './components/TasksChecklist';
 import { SettingsPage } from './components/SettingsPage';
+import { ContentAnalyzer } from './components/ContentAnalyzer';
+import { ScriptEnhancer } from './components/ScriptEnhancer';
 import { VideoIdea, SearchState, NicheType, IdeaStatus, Theme } from './types';
-import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2, Database, Settings, Dices, ListTodo } from 'lucide-react';
+import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2, Database, Settings, Dices, ListTodo, Target, Wand2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [theme, setTheme] = useState<Theme>('dark');
-  const [activeView, setActiveView] = useState<'search' | 'planner' | 'checklist' | 'settings'>('search');
+  const [activeView, setActiveView] = useState<'search' | 'planner' | 'checklist' | 'analyzer' | 'enhancer' | 'settings'>('search');
   const [selectedNiche, setSelectedNiche] = useState<NicheType>(NicheType.INVESTING);
   const [globalAiInstructions, setGlobalAiInstructions] = useState('');
 
@@ -292,6 +294,22 @@ const App: React.FC = () => {
                     <ListTodo size={18} />
                     Tasks
                 </button>
+                <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                <button
+                    onClick={() => setActiveView('analyzer')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'analyzer' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                >
+                    <Target size={18} />
+                    Analyzer
+                </button>
+                <button
+                    onClick={() => setActiveView('enhancer')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'enhancer' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                >
+                    <Wand2 size={18} />
+                    Script Dr.
+                </button>
+                <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
                 <button
                     onClick={() => setActiveView('settings')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'settings' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
@@ -349,6 +367,28 @@ const App: React.FC = () => {
                 <div className="max-w-3xl mx-auto">
                     <TasksChecklist />
                 </div>
+             </div>
+        )}
+
+        {/* VIEW: ANALYZER */}
+        {activeView === 'analyzer' && (
+             <div className="animate-fade-in h-[calc(100vh-140px)]">
+                <div className="mb-6">
+                    <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-2">Content Analyzer</h2>
+                    <p className="text-gray-600 dark:text-gray-400">Validate your ideas before you film. Check viral potential and packaging.</p>
+                </div>
+                <ContentAnalyzer />
+             </div>
+        )}
+
+        {/* VIEW: ENHANCER */}
+        {activeView === 'enhancer' && (
+             <div className="animate-fade-in">
+                <div className="mb-6">
+                    <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-2">Script Doctor</h2>
+                    <p className="text-gray-600 dark:text-gray-400">Turn rough notes into high-retention scripts using storytelling psychology.</p>
+                </div>
+                <ScriptEnhancer />
              </div>
         )}
 

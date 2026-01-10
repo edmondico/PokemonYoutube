@@ -123,6 +123,70 @@ export const generateScriptPrompt = (
 };
 
 /**
+ * Generate Content Analyzer Prompt
+ */
+export const generateAnalyzerPrompt = (title: string, hasImage: boolean): string => {
+  return `
+    Act as a harsh but fair YouTube Algorithm Expert and Professional Editor.
+    I will provide a Title ${hasImage ? 'and a Thumbnail image' : ''}.
+
+    Title: "${title}"
+    
+    Your task:
+    1. Analyze the Viral Potential (CTR and Curiosity Gap).
+    2. Identify specific Strengths (what makes it click).
+    3. Identify specific Weaknesses (is it boring? confusing? too long?).
+    4. Suggest 3 Alternative Titles that are significantly better (more punchy, better curiosity gap).
+    5. Give specific improvement tips.
+
+    Return the response STRICTLY in the following JSON format:
+    \`\`\`json
+    {
+      "score": 75,
+      "prediction": "High Performing",
+      "strengths": ["...", "..."],
+      "weaknesses": ["...", "..."],
+      "alternativeTitles": ["...", "..."],
+      "improvementTips": ["...", "..."]
+    }
+    \`\`\`
+
+    Possible predictions: "Viral", "High Performing", "Average", "Low Potential".
+    Score should be 0-100 based on likelihood to get >10% CTR.
+  `;
+};
+
+/**
+ * Generate Script Enhancer Prompt
+ */
+export const generateEnhancerPrompt = (script: string): string => {
+  return `
+    Act as a professional YouTube Script Doctor and Storyteller.
+    I will provide a draft script or bullet points.
+
+    Input Script:
+    "${script.substring(0, 5000)}..."
+
+    Your task:
+    1. Rewrite the content to improve flow, retention, and engagement.
+    2. Make the HOOK (first 30s) extremely compelling.
+    3. Add "Pattern Interrupts" or visual cues instructions [Visual: ...] where appropriate.
+    4. Ensure the tone is energetic but authentic.
+
+    Return the response STRICTLY in the following JSON format:
+    \`\`\`json
+    {
+      "improvedScript": "markdown string...",
+      "changesMade": ["Added a stronger hook", "Removed fluff in intro", "..."],
+      "hookScore": 85,
+      "pacingScore": 90,
+      "estimatedDuration": "8-10 minutes"
+    }
+    \`\`\`
+  `;
+};
+
+/**
  * Niches available for searching
  */
 export const NICHES = {

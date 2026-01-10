@@ -1,11 +1,21 @@
 import { GoogleGenAI } from "@google/genai";
-import { VideoIdea, NicheType, SearchState } from "../types";
-import { AI_CONFIG, generateSearchPrompt, generateScriptPrompt } from "../config/aiPrompts";
+import { VideoIdea, NicheType, SearchState, ContentAnalysis, ScriptImprovement } from "../types";
+import { AI_CONFIG, generateSearchPrompt, generateScriptPrompt, generateAnalyzerPrompt, generateEnhancerPrompt } from "../config/aiPrompts";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Helper to generate IDs
 const generateId = () => Math.random().toString(36).substr(2, 9);
+
+// Helper to clean JSON string
+const cleanJsonString = (jsonString: string): string => {
+  if (jsonString.includes("```json")) {
+    return jsonString.split("```json")[1].split("```")[0];
+  } else if (jsonString.includes("```")) {
+    return jsonString.split("```")[1].split("```")[0];
+  }
+  return jsonString;
+};
 
 export const generateVideoIdeas = async (
   niche: NicheType | string,
@@ -33,12 +43,7 @@ export const generateVideoIdeas = async (
       }));
 
     let jsonString = response.text || "{}";
-
-    if (jsonString.includes("```json")) {
-      jsonString = jsonString.split("```json")[1].split("```")[0];
-    } else if (jsonString.includes("```")) {
-      jsonString = jsonString.split("```")[1].split("```")[0];
-    }
+    jsonString = cleanJsonString(jsonString);
 
     const data = JSON.parse(jsonString);
 
@@ -75,4 +80,52 @@ export const generateScript = async (idea: VideoIdea): Promise<string> => {
   });
 
   return response.text || "Failed to generate script.";
+};
+
+export const analyzeContent = async (title: string, imageBase64?: string): Promise<ContentAnalysis> => {
+  const prompt = generateAnalyzerPrompt(title, !!imageBase64);
+  
+  const contents: any[] = [{ text: prompt }];
+  
+  if (imageBase64) {
+    // Remove data URL prefix if present (e.g., "data:image/png;base64,")
+    const base64Data = imageBase64.split(',')[1] || imageBase64;
+    
+    contents.push({
+      inlineData: {
+        mimeType: "image/png", // Assuming PNG or JPEG, Gemini handles most
+        data: base64Data
+      }
+    });
+  }
+
+  try {
+    const response = await ai.models.generateContent({
+      model: AI_CONFIG.model,
+      contents: contents,
+    });
+
+    const jsonString = cleanJsonString(response.text || "{}");
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.error("Error analyzing content:", error);
+    throw new Error("Analysis failed. Please try again.");
+  }
+};
+
+export const enhanceScript = async (script: string): Promise<ScriptImprovement> => {
+  const prompt = generateEnhancerPrompt(script);
+
+  try {
+    const response = await ai.models.generateContent({
+      model: AI_CONFIG.model,
+      contents: prompt,
+    });
+
+    const jsonString = cleanJsonString(response.text || "{}");
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.error("Error enhancing script:", error);
+    throw new Error("Enhancement failed. Please try again.");
+  }
 };

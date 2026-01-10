@@ -60,3 +60,22 @@ export enum NicheType {
 }
 
 export type Theme = 'light' | 'dark';
+
+// AI Analyzer Types
+export interface ContentAnalysis {
+  score: number; // 0-100
+  prediction: 'Viral' | 'High Performing' | 'Average' | 'Low Potential';
+  strengths: string[];
+  weaknesses: string[];
+  alternativeTitles: string[];
+  improvementTips: string[];
+}
+
+// Script Enhancer Types
+export interface ScriptImprovement {
+  improvedScript: string;
+  changesMade: string[];
+  hookScore: number; // 0-100
+  pacingScore: number; // 0-100
+  estimatedDuration: string;
+}
