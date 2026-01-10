@@ -259,14 +259,15 @@ const YouTubeMotivation: React.FC = () => {
   const unlockedCount = achievements.filter(a => !a.locked).length;
   const nextMilestone = milestones.find(m => !m.achieved);
 
-  // Calendar helpers
+  // Calendar helpers - Monday first
   const getCalendarDays = () => {
     const year = calendarMonth.getFullYear();
     const month = calendarMonth.getMonth();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
-    const startingDay = firstDay.getDay();
+    // Convert Sunday=0 to Monday=0 format (Monday first)
+    const startingDay = (firstDay.getDay() + 6) % 7;
 
     const days: { date: Date; videos: YouTubeVideo[] }[] = [];
 
@@ -288,7 +289,42 @@ const YouTubeMotivation: React.FC = () => {
     return days;
   };
 
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  // Target upload frequency: every 2 days
+  const TARGET_UPLOAD_FREQUENCY = 2;
+
+  const getSuggestedUploadDates = (): Date[] => {
+    if (videos.length === 0) return [];
+
+    const sortedVideos = [...videos].sort((a, b) =>
+      new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+    );
+    const lastUpload = new Date(sortedVideos[0].publishedAt);
+    const suggestions: Date[] = [];
+
+    // Generate next 5 suggested upload dates
+    let nextDate = new Date(lastUpload);
+    for (let i = 0; i < 5; i++) {
+      nextDate = new Date(nextDate.getTime() + TARGET_UPLOAD_FREQUENCY * 24 * 60 * 60 * 1000);
+      if (nextDate >= new Date()) {
+        suggestions.push(new Date(nextDate));
+      }
+    }
+
+    // If all dates are in the past, start from today
+    if (suggestions.length === 0) {
+      nextDate = new Date();
+      for (let i = 0; i < 5; i++) {
+        nextDate = new Date(nextDate.getTime() + TARGET_UPLOAD_FREQUENCY * 24 * 60 * 60 * 1000);
+        suggestions.push(new Date(nextDate));
+      }
+    }
+
+    return suggestions;
+  };
+
+  const suggestedDates = getSuggestedUploadDates();
+
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   return (
@@ -577,6 +613,7 @@ const YouTubeMotivation: React.FC = () => {
               const isCurrentMonth = day.date.getMonth() === calendarMonth.getMonth();
               const isToday = day.date.toDateString() === new Date().toDateString();
               const hasVideos = day.videos.length > 0;
+              const isSuggestedDate = suggestedDates.some(d => d.toDateString() === day.date.toDateString());
 
               return (
                 <div
@@ -588,11 +625,18 @@ const YouTubeMotivation: React.FC = () => {
                       ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'
                       : hasVideos
                       ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
+                      : isSuggestedDate
+                      ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700 border-dashed'
                       : 'bg-gray-50 dark:bg-gray-700/30 border-gray-200 dark:border-gray-600'
                   }`}
                 >
-                  <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                  <div className={`text-sm font-medium mb-1 flex items-center gap-1 ${
+                    isToday ? 'text-blue-600 dark:text-blue-400' :
+                    isSuggestedDate ? 'text-yellow-600 dark:text-yellow-400' :
+                    'text-gray-700 dark:text-gray-300'
+                  }`}>
                     {day.date.getDate()}
+                    {isSuggestedDate && !hasVideos && <Zap size={12} className="text-yellow-500" />}
                   </div>
                   {day.videos.map((video, vIdx) => (
                     <a
@@ -607,25 +651,59 @@ const YouTubeMotivation: React.FC = () => {
                       {video.title.substring(0, 15)}...
                     </a>
                   ))}
+                  {isSuggestedDate && !hasVideos && (
+                    <div className="text-[10px] text-yellow-600 dark:text-yellow-400 font-medium">
+                      Upload!
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
 
+          {/* Legend */}
+          <div className="flex flex-wrap gap-4 mt-4 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-green-100 border border-green-300"></div>
+              <span className="text-gray-600 dark:text-gray-400">Video uploaded</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-yellow-50 border border-yellow-300 border-dashed"></div>
+              <span className="text-gray-600 dark:text-gray-400">Suggested upload</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-blue-100 border border-blue-300"></div>
+              <span className="text-gray-600 dark:text-gray-400">Today</span>
+            </div>
+          </div>
+
           {/* Suggested Upload Schedule */}
-          {analytics && analytics.suggestedNextUpload && (
-            <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-800">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-500 rounded-lg">
+          {suggestedDates.length > 0 && (
+            <div className="mt-6 p-4 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-yellow-500 rounded-lg">
                   <Zap className="text-white" size={20} />
                 </div>
                 <div>
-                  <h4 className="font-bold text-green-800 dark:text-green-200">Suggested Next Upload</h4>
-                  <p className="text-sm text-green-600 dark:text-green-400">
-                    Based on your upload pattern (every ~{analytics.uploadFrequency} days), consider uploading on{' '}
-                    <strong>{analytics.suggestedNextUpload.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</strong>
+                  <h4 className="font-bold text-yellow-800 dark:text-yellow-200">Upload Schedule (every {TARGET_UPLOAD_FREQUENCY} days)</h4>
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                    Your next suggested upload dates:
                   </p>
                 </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {suggestedDates.slice(0, 5).map((date, idx) => (
+                  <div
+                    key={idx}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                      idx === 0
+                        ? 'bg-yellow-500 text-white'
+                        : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200'
+                    }`}
+                  >
+                    {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </div>
+                ))}
               </div>
             </div>
           )}
