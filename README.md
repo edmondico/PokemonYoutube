@@ -1,20 +1,45 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# PokeTrend AI 📈
 
-# Run and deploy your AI Studio app
+Una herramienta impulsada por Inteligencia Artificial para encontrar "outliers" (anomalías de mercado), tendencias virales e ideas de contenido para el nicho de Pokémon Investing y Collecting.
 
-This contains everything you need to run your app locally.
+## 🚀 Instalación y Ejecución
 
-View your app in AI Studio: https://ai.studio/apps/drive/1mv2TKlNRN4LD5hpQIpPYt5aEMmlolrGC
+Sigue estos pasos para ejecutar el proyecto en tu ordenador:
 
-## Run Locally
+### 1. Requisitos Previos
+Necesitas tener instalado **Node.js** (versión 18 o superior).
 
-**Prerequisites:**  Node.js
+### 2. Instalar Dependencias
+Abre una terminal en la carpeta del proyecto y ejecuta:
 
+```bash
+npm install
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 3. Configurar la API Key
+1. Renombra el archivo `.env.example` a `.env`.
+2. Abre el archivo `.env` con un editor de texto.
+3. Pega tu API Key de Google Gemini (ver guía `GUIA_IA.md`).
+
+### 4. Ejecutar la Aplicación
+Ejecuta el siguiente comando:
+
+```bash
+npm run dev
+```
+
+Abre tu navegador en la dirección que aparece (normalmente `http://localhost:5173`).
+
+## 🛠️ Tecnologías
+
+- **React + Vite**: Framework frontend rápido.
+- **Google Gemini API**: Motor de inteligencia artificial (Modelo: gemini-3-flash-preview).
+- **Tailwind CSS**: Estilizado moderno y responsivo.
+- **Recharts**: Gráficos de análisis de datos.
+
+## 📁 Estructura del Proyecto
+
+- `/src`: Contiene todo el código fuente.
+- `/src/services`: Lógica de conexión con la IA.
+- `/src/components`: Componentes visuales (Tarjetas, Gráficos, Tablero).
+- `/src/types.ts`: Definiciones de tipos de TypeScript.
