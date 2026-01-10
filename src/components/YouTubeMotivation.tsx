@@ -107,117 +107,142 @@ const YouTubeMotivation: React.FC = () => {
     loadChannelStats();
   }, []);
 
-  // Milestones progression
-  const milestones: Milestone[] = [
-    {
-      id: '1',
-      title: 'First 1K Subscribers',
-      target: 1000,
-      current: stats.subscribers,
-      icon: <Users className="text-blue-500" size={20} />,
-      unit: 'subs',
-      achieved: stats.subscribers >= 1000
-    },
-    {
-      id: '2',
-      title: '5K Subscribers',
-      target: 5000,
-      current: stats.subscribers,
-      icon: <Users className="text-purple-500" size={20} />,
-      unit: 'subs',
-      achieved: stats.subscribers >= 5000
-    },
-    {
-      id: '3',
-      title: '10K Subscribers',
-      target: 10000,
-      current: stats.subscribers,
-      icon: <Users className="text-yellow-500" size={20} />,
-      unit: 'subs',
-      achieved: stats.subscribers >= 10000
-    },
-    {
-      id: '4',
-      title: '100K Views Total',
-      target: 100000,
-      current: stats.totalViews,
-      icon: <Eye className="text-green-500" size={20} />,
-      unit: 'views',
-      achieved: stats.totalViews >= 100000
-    },
-    {
-      id: '5',
-      title: '50 Videos Published',
-      target: 50,
-      current: stats.totalVideos,
-      icon: <Video className="text-red-500" size={20} />,
-      unit: 'videos',
-      achieved: stats.totalVideos >= 50
-    },
-    {
-      id: '6',
-      title: '100 Videos Published',
-      target: 100,
-      current: stats.totalVideos,
-      icon: <Video className="text-pokemon-red" size={20} />,
-      unit: 'videos',
-      achieved: stats.totalVideos >= 100
-    }
-  ];
+  // Procedural milestone generation
+  const generateMilestones = (): Milestone[] => {
+    const subMilestones = [100, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000];
+    const viewMilestones = [1000, 10000, 50000, 100000, 500000, 1000000, 5000000, 10000000, 50000000, 100000000];
+    const videoMilestones = [10, 25, 50, 100, 150, 200, 300, 500, 1000];
 
-  // Achievements system
+    const formatMilestone = (n: number): string => {
+      if (n >= 1000000) return `${n / 1000000}M`;
+      if (n >= 1000) return `${n / 1000}K`;
+      return n.toString();
+    };
+
+    const milestones: Milestone[] = [];
+
+    // Find next 2 subscriber milestones (1 achieved + 1 upcoming, or 2 upcoming)
+    const nextSubIdx = subMilestones.findIndex(m => m > stats.subscribers);
+    const subStart = Math.max(0, nextSubIdx - 1);
+    const subTargets = subMilestones.slice(subStart, subStart + 2);
+
+    subTargets.forEach((target, i) => {
+      milestones.push({
+        id: `sub-${target}`,
+        title: `${formatMilestone(target)} Subscribers`,
+        target,
+        current: stats.subscribers,
+        icon: <Users className={i === 0 ? "text-blue-500" : "text-purple-500"} size={20} />,
+        unit: 'subs',
+        achieved: stats.subscribers >= target
+      });
+    });
+
+    // Find next 2 view milestones
+    const nextViewIdx = viewMilestones.findIndex(m => m > stats.totalViews);
+    const viewStart = Math.max(0, nextViewIdx - 1);
+    const viewTargets = viewMilestones.slice(viewStart, viewStart + 2);
+
+    viewTargets.forEach((target, i) => {
+      milestones.push({
+        id: `view-${target}`,
+        title: `${formatMilestone(target)} Total Views`,
+        target,
+        current: stats.totalViews,
+        icon: <Eye className={i === 0 ? "text-green-500" : "text-emerald-500"} size={20} />,
+        unit: 'views',
+        achieved: stats.totalViews >= target
+      });
+    });
+
+    // Find next 2 video milestones
+    const nextVideoIdx = videoMilestones.findIndex(m => m > stats.totalVideos);
+    const videoStart = Math.max(0, nextVideoIdx - 1);
+    const videoTargets = videoMilestones.slice(videoStart, videoStart + 2);
+
+    videoTargets.forEach((target, i) => {
+      milestones.push({
+        id: `video-${target}`,
+        title: `${formatMilestone(target)} Videos Published`,
+        target,
+        current: stats.totalVideos,
+        icon: <Video className={i === 0 ? "text-red-500" : "text-orange-500"} size={20} />,
+        unit: 'videos',
+        achieved: stats.totalVideos >= target
+      });
+    });
+
+    return milestones;
+  };
+
+  const milestones = generateMilestones();
+
+  // Achievements system - expanded with Pokemon themes
   const achievements: Achievement[] = [
+    // Video milestones
     {
       id: 'first-video',
       title: 'First Steps',
       description: 'Published your first video',
       icon: <Star className="text-yellow-400" size={24} />,
-      unlockedAt: '2023',
-      locked: false
+      locked: stats.totalVideos < 1
     },
     {
       id: '10-videos',
       title: 'Content Creator',
       description: 'Published 10 videos',
       icon: <Video className="text-blue-400" size={24} />,
-      unlockedAt: '2023',
       locked: stats.totalVideos < 10
     },
     {
+      id: '50-videos',
+      title: 'Dedicated Trainer',
+      description: 'Published 50 videos',
+      icon: <Video className="text-indigo-400" size={24} />,
+      locked: stats.totalVideos < 50
+    },
+    {
+      id: '100-videos',
+      title: 'Pokemon Master',
+      description: 'Published 100 videos',
+      icon: <Award className="text-red-500" size={24} />,
+      locked: stats.totalVideos < 100
+    },
+    // Subscriber milestones
+    {
+      id: '100-subs',
+      title: 'Starter Pokemon',
+      description: 'Reached 100 subscribers',
+      icon: <Users className="text-green-400" size={24} />,
+      locked: stats.subscribers < 100
+    },
+    {
       id: '1k-subs',
-      title: 'Community Builder',
+      title: 'Gym Leader',
       description: 'Reached 1,000 subscribers',
       icon: <Users className="text-purple-400" size={24} />,
-      unlockedAt: stats.subscribers >= 1000 ? '2024' : undefined,
       locked: stats.subscribers < 1000
     },
     {
-      id: 'consistent',
-      title: 'Consistency King',
-      description: 'Posted weekly for a month',
-      icon: <Calendar className="text-green-400" size={24} />,
-      locked: false
-    },
-    {
-      id: 'viral',
-      title: 'Viral Moment',
-      description: 'Got a video with 10K+ views',
-      icon: <Flame className="text-orange-400" size={24} />,
-      locked: true
-    },
-    {
-      id: 'monetized',
-      title: 'Monetization Ready',
-      description: 'Reached 1K subs + 4K watch hours',
-      icon: <Trophy className="text-yellow-500" size={24} />,
-      locked: stats.subscribers < 1000
+      id: '5k-subs',
+      title: 'Elite Four',
+      description: 'Reached 5,000 subscribers',
+      icon: <Users className="text-blue-500" size={24} />,
+      locked: stats.subscribers < 5000
     },
     {
       id: '10k-subs',
-      title: 'Rising Star',
+      title: 'Champion',
       description: 'Reached 10,000 subscribers',
-      icon: <Award className="text-pink-400" size={24} />,
+      icon: <Trophy className="text-yellow-500" size={24} />,
       locked: stats.subscribers < 10000
+    },
+    {
+      id: '25k-subs',
+      title: 'Regional Champion',
+      description: 'Reached 25,000 subscribers',
+      icon: <Award className="text-pink-400" size={24} />,
+      locked: stats.subscribers < 25000
     },
     {
       id: '100k-subs',
@@ -225,6 +250,50 @@ const YouTubeMotivation: React.FC = () => {
       description: 'Reached 100,000 subscribers',
       icon: <Sparkles className="text-gray-400" size={24} />,
       locked: stats.subscribers < 100000
+    },
+    // View milestones
+    {
+      id: '10k-views',
+      title: 'First Catch',
+      description: 'Reached 10,000 total views',
+      icon: <Eye className="text-cyan-400" size={24} />,
+      locked: stats.totalViews < 10000
+    },
+    {
+      id: '100k-views',
+      title: 'Rare Spawn',
+      description: 'Reached 100,000 total views',
+      icon: <Eye className="text-teal-400" size={24} />,
+      locked: stats.totalViews < 100000
+    },
+    {
+      id: '1m-views',
+      title: 'Legendary Encounter',
+      description: 'Reached 1,000,000 total views',
+      icon: <Flame className="text-orange-500" size={24} />,
+      locked: stats.totalViews < 1000000
+    },
+    // Special achievements
+    {
+      id: 'consistent',
+      title: 'Consistency King',
+      description: 'Posted regularly for a month',
+      icon: <Calendar className="text-green-400" size={24} />,
+      locked: stats.totalVideos < 4
+    },
+    {
+      id: 'monetized',
+      title: 'Monetization Ready',
+      description: 'Reached 1K subs (halfway to YPP!)',
+      icon: <Zap className="text-yellow-500" size={24} />,
+      locked: stats.subscribers < 1000
+    },
+    {
+      id: 'shiny-hunter',
+      title: 'Shiny Hunter',
+      description: 'Over 10K views per video average',
+      icon: <Sparkles className="text-pink-400" size={24} />,
+      locked: stats.totalVideos === 0 || (stats.totalViews / stats.totalVideos) < 10000
     }
   ];
 
