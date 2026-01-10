@@ -10,15 +10,17 @@ import { TasksChecklist } from './components/TasksChecklist';
 import { SettingsPage } from './components/SettingsPage';
 import { ContentAnalyzer } from './components/ContentAnalyzer';
 import { ScriptEnhancer } from './components/ScriptEnhancer';
+import { YouTubeMotivation } from './components/YouTubeMotivation';
 import { VideoIdea, SearchState, NicheType, IdeaStatus, Theme } from './types';
-import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2, Database, Settings, Dices, ListTodo, Target, Wand2 } from 'lucide-react';
+import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2, Database, Settings, Dices, ListTodo, Target, Wand2, Menu, X, Youtube } from 'lucide-react';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [theme, setTheme] = useState<Theme>('dark');
-  const [activeView, setActiveView] = useState<'search' | 'planner' | 'checklist' | 'analyzer' | 'enhancer' | 'settings'>('search');
+  const [activeView, setActiveView] = useState<'search' | 'planner' | 'checklist' | 'analyzer' | 'enhancer' | 'motivation' | 'settings'>('search');
   const [selectedNiche, setSelectedNiche] = useState<NicheType>(NicheType.INVESTING);
   const [globalAiInstructions, setGlobalAiInstructions] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Custom Instructions State
   const [showCustomInstructions, setShowCustomInstructions] = useState(false);
@@ -263,59 +265,67 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 shadow-sm transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveView('search')}>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setActiveView('search'); setMobileMenuOpen(false); }}>
             <div className="bg-pokemon-red text-white p-1.5 rounded-lg shadow-md">
               <Sparkles size={20} />
             </div>
             <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">PokeTrend <span className="text-pokemon-blue">AI</span></h1>
           </div>
 
-          <div className="flex items-center gap-4">
-             {/* Navigation */}
-             <div className="hidden md:flex gap-2">
+          <div className="flex items-center gap-2 sm:gap-4">
+             {/* Desktop Navigation */}
+             <div className="hidden lg:flex gap-1 xl:gap-2">
                 <button
                     onClick={() => setActiveView('search')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'search' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'search' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                 >
-                    <Search size={18} />
-                    Find Ideas
+                    <Search size={16} />
+                    <span className="hidden xl:inline">Find Ideas</span>
                 </button>
                 <button
                     onClick={() => setActiveView('planner')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'planner' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'planner' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                 >
-                    <KanbanSquare size={18} />
-                    My Planner <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded text-xs">{savedIdeas.length}</span>
+                    <KanbanSquare size={16} />
+                    <span className="hidden xl:inline">Planner</span>
+                    <span className="px-1.5 py-0.5 bg-white/20 dark:bg-black/20 rounded text-xs">{savedIdeas.length}</span>
                 </button>
                 <button
                     onClick={() => setActiveView('checklist')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'checklist' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'checklist' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                 >
-                    <ListTodo size={18} />
-                    Tasks
+                    <ListTodo size={16} />
+                    <span className="hidden xl:inline">Tasks</span>
                 </button>
-                <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-0.5"></div>
                 <button
                     onClick={() => setActiveView('analyzer')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'analyzer' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'analyzer' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                 >
-                    <Target size={18} />
-                    Analyzer
+                    <Target size={16} />
+                    <span className="hidden xl:inline">Analyzer</span>
                 </button>
                 <button
                     onClick={() => setActiveView('enhancer')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'enhancer' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'enhancer' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                 >
-                    <Wand2 size={18} />
-                    Script Dr.
+                    <Wand2 size={16} />
+                    <span className="hidden xl:inline">Script Dr.</span>
                 </button>
-                <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-0.5"></div>
+                <button
+                    onClick={() => setActiveView('motivation')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'motivation' ? 'bg-pokemon-red text-white shadow' : 'text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'}`}
+                >
+                    <Youtube size={16} />
+                    <span className="hidden xl:inline">YouTube</span>
+                </button>
                 <button
                     onClick={() => setActiveView('settings')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'settings' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'settings' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                 >
-                    <Settings size={18} />
-                    Settings
+                    <Settings size={16} />
+                    <span className="hidden xl:inline">Settings</span>
                 </button>
              </div>
 
@@ -327,8 +337,74 @@ const App: React.FC = () => {
              >
                 {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
              </button>
+
+             {/* Mobile Menu Button */}
+             <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+             >
+                {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+             </button>
           </div>
         </div>
+
+        {/* Mobile Navigation Menu */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 animate-fade-in">
+            <nav className="max-w-7xl mx-auto px-4 py-3 grid grid-cols-2 gap-2">
+              <button
+                onClick={() => { setActiveView('search'); setMobileMenuOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeView === 'search' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
+              >
+                <Search size={18} />
+                Find Ideas
+              </button>
+              <button
+                onClick={() => { setActiveView('planner'); setMobileMenuOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeView === 'planner' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
+              >
+                <KanbanSquare size={18} />
+                Planner
+                <span className="ml-auto px-1.5 py-0.5 bg-pokemon-blue/20 dark:bg-white/20 rounded text-xs">{savedIdeas.length}</span>
+              </button>
+              <button
+                onClick={() => { setActiveView('checklist'); setMobileMenuOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeView === 'checklist' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
+              >
+                <ListTodo size={18} />
+                Tasks
+              </button>
+              <button
+                onClick={() => { setActiveView('analyzer'); setMobileMenuOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeView === 'analyzer' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
+              >
+                <Target size={18} />
+                Analyzer
+              </button>
+              <button
+                onClick={() => { setActiveView('enhancer'); setMobileMenuOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeView === 'enhancer' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
+              >
+                <Wand2 size={18} />
+                Script Doctor
+              </button>
+              <button
+                onClick={() => { setActiveView('motivation'); setMobileMenuOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeView === 'motivation' ? 'bg-pokemon-red text-white shadow' : 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30'}`}
+              >
+                <Youtube size={18} />
+                YouTube Stats
+              </button>
+              <button
+                onClick={() => { setActiveView('settings'); setMobileMenuOpen(false); }}
+                className={`col-span-2 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeView === 'settings' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
+              >
+                <Settings size={18} />
+                Settings
+              </button>
+            </nav>
+          </div>
+        )}
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -389,6 +465,17 @@ const App: React.FC = () => {
                     <p className="text-gray-600 dark:text-gray-400">Turn rough notes into high-retention scripts using storytelling psychology.</p>
                 </div>
                 <ScriptEnhancer />
+             </div>
+        )}
+
+        {/* VIEW: MOTIVATION */}
+        {activeView === 'motivation' && (
+             <div className="animate-fade-in">
+                <div className="mb-6">
+                    <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-2">YouTube Motivation</h2>
+                    <p className="text-gray-600 dark:text-gray-400">Track your channel growth, celebrate achievements, and stay motivated!</p>
+                </div>
+                <YouTubeMotivation />
              </div>
         )}
 
