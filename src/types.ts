@@ -79,3 +79,13 @@ export interface ScriptImprovement {
   pacingScore: number; // 0-100
   estimatedDuration: string;
 }
+
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  category: 'general' | 'video-idea' | 'script-draft' | 'market-research';
+  isPinned: boolean;
+  createdAt: number;
+  updatedAt: number;
+}

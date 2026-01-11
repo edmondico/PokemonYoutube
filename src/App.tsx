@@ -12,13 +12,14 @@ import { ContentAnalyzer } from './components/ContentAnalyzer';
 import { ScriptEnhancer } from './components/ScriptEnhancer';
 import { YouTubeMotivation } from './components/YouTubeMotivation';
 import { Dashboard } from './components/Dashboard';
+import { NotesPage } from './components/NotesPage';
 import { VideoIdea, SearchState, NicheType, IdeaStatus, Theme } from './types';
-import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2, Database, Settings, Dices, ListTodo, Target, Wand2, Menu, X, Youtube, Home } from 'lucide-react';
+import { LayoutGrid, Sparkles, Search, TrendingUp, Link as LinkIcon, RefreshCcw, Globe, Zap, Lightbulb, KanbanSquare, Moon, Sun, Settings2, Database, Settings, Dices, ListTodo, Target, Wand2, Menu, X, Youtube, Home, FileText } from 'lucide-react';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [theme, setTheme] = useState<Theme>('dark');
-  const [activeView, setActiveView] = useState<'dashboard' | 'search' | 'planner' | 'checklist' | 'analyzer' | 'enhancer' | 'motivation' | 'settings'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'search' | 'planner' | 'checklist' | 'analyzer' | 'enhancer' | 'motivation' | 'notes' | 'settings'>('dashboard');
   const [selectedNiche, setSelectedNiche] = useState<NicheType>(NicheType.INVESTING);
   const [globalAiInstructions, setGlobalAiInstructions] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -328,6 +329,14 @@ const App: React.FC = () => {
                     <Youtube size={16} />
                     <span className="hidden xl:inline">YouTube</span>
                 </button>
+                <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-0.5"></div>
+                <button
+                    onClick={() => setActiveView('notes')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'notes' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                >
+                    <FileText size={16} />
+                    <span className="hidden xl:inline">Notes</span>
+                </button>
                 <button
                     onClick={() => setActiveView('settings')}
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'settings' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
@@ -411,6 +420,13 @@ const App: React.FC = () => {
                 YouTube Stats
               </button>
               <button
+                onClick={() => { setActiveView('notes'); setMobileMenuOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeView === 'notes' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
+              >
+                <FileText size={18} />
+                Notes
+              </button>
+              <button
                 onClick={() => { setActiveView('settings'); setMobileMenuOpen(false); }}
                 className={`col-span-2 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeView === 'settings' ? 'bg-pokemon-dark dark:bg-pokemon-blue text-white shadow' : 'text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
               >
@@ -430,6 +446,11 @@ const App: React.FC = () => {
             savedIdeas={savedIdeas}
             onNavigate={(view) => setActiveView(view)}
           />
+        )}
+
+        {/* VIEW: NOTES */}
+        {activeView === 'notes' && (
+          <NotesPage />
         )}
 
         {/* VIEW: PLANNER */}

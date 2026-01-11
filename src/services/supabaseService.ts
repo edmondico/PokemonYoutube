@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { VideoIdea, TodoItem, Task } from '../types';
+import { VideoIdea, TodoItem, Task, Note } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -41,6 +41,60 @@ const dbToIdea = (row: any): VideoIdea => ({
   createdAt: row.created_at,
   isDisliked: row.is_disliked,
 });
+
+// ==================== NOTES ====================
+
+export const getNotes = async (): Promise<Note[]> => {
+  const { data, error } = await supabase
+    .from('notes')
+    .select('*')
+    .order('is_pinned', { ascending: false })
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching notes:', error);
+    return [];
+  }
+
+  return (data || []).map(row => ({
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    category: row.category,
+    isPinned: row.is_pinned,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+};
+
+export const saveNote = async (note: Note): Promise<void> => {
+  const { error } = await supabase
+    .from('notes')
+    .upsert({
+      id: note.id,
+      title: note.title,
+      content: note.content,
+      category: note.category,
+      is_pinned: note.isPinned,
+      created_at: note.createdAt,
+      updated_at: note.updatedAt,
+    });
+
+  if (error) {
+    console.error('Error saving note:', error);
+  }
+};
+
+export const deleteNote = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('notes')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting note:', error);
+  }
+};
 
 // ==================== SAVED IDEAS ====================
 
