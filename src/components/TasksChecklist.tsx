@@ -64,6 +64,9 @@ export const TasksChecklist: React.FC = () => {
   useEffect(() => {
     const loadTasks = async () => {
       setIsLoading(true);
+      // Ensure perpetual tasks exist for this date
+      await db.ensureDailyTasksForDate(selectedDate);
+      // Fetch all tasks
       const fetchedTasks = await db.getTasksByDate(selectedDate);
       setTasks(fetchedTasks);
       setIsLoading(false);

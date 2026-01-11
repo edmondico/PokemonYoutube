@@ -18,17 +18,19 @@ import {
 } from 'lucide-react';
 import { VideoIdea } from '../types';
 import { fetchChannelByHandle, fetchChannelVideos, YouTubeVideo } from '../services/youtubeService';
+import { ensureDailyTasksForDate, getTasksByDate, toggleTaskComplete } from '../services/supabaseService';
 
 interface DashboardProps {
   savedIdeas: VideoIdea[];
   onNavigate: (view: 'search' | 'planner' | 'checklist' | 'analyzer' | 'enhancer' | 'motivation') => void;
 }
 
-interface DailyTask {
+interface DashboardTask {
   id: string;
   title: string;
   completed: boolean;
   priority: 'high' | 'medium' | 'low';
+  isDbTask?: boolean;
 }
 
 const CHANNEL_HANDLE = '@PokeBim';
@@ -37,7 +39,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ savedIdeas, onNavigate }) 
   const [currentTime, setCurrentTime] = useState(new Date());
   const [channelStats, setChannelStats] = useState<{ subscribers: number; totalViews: number; totalVideos: number } | null>(null);
   const [recentVideos, setRecentVideos] = useState<YouTubeVideo[]>([]);
-  const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
+  const [dashboardTasks, setDashboardTasks] = useState<DashboardTask[]>([]);
 
   // Motivational quotes
   const quotes = [
@@ -77,83 +79,98 @@ export const Dashboard: React.FC<DashboardProps> = ({ savedIdeas, onNavigate }) 
     loadData();
   }, []);
 
-  // Generate daily tasks based on content pipeline
+  // Generate daily tasks based on content pipeline AND fetch real DB tasks
   useEffect(() => {
-    const generateDailyTasks = () => {
-      const tasks: DailyTask[] = [];
-      const today = new Date().toDateString();
+    const loadTasks = async () => {
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const tasks: DashboardTask[] = [];
 
+      // 1. Ensure and fetch DB tasks (Checklist + Perpetual)
+      try {
+        await ensureDailyTasksForDate(today);
+        const dbTasks = await getTasksByDate(today);
+        
+        dbTasks.forEach(t => {
+          tasks.push({
+            id: t.id,
+            title: t.text,
+            completed: t.completed,
+            priority: 'medium',
+            isDbTask: true
+          });
+        });
+      } catch (error) {
+        console.error("Failed to load DB tasks:", error);
+      }
+
+      // 2. Generate Pipeline Tasks (Dynamic)
       // Check ideas in different stages
       const inScripting = savedIdeas.filter(i => i.status === 'scripting');
       const inFilming = savedIdeas.filter(i => i.status === 'filming');
       const savedCount = savedIdeas.filter(i => i.status === 'saved').length;
 
+      // Only add pipeline tasks if not already done in the session (simplified tracking via localStorage for pipeline only)
+      const storedPipelineStatus = JSON.parse(localStorage.getItem(`dashboard_pipeline_${today}`) || '{}');
+
       if (inFilming.length > 0) {
-        tasks.push({
-          id: 'filming',
+        const id = `filming-${inFilming[0].id}`;
+        tasks.unshift({
+          id,
           title: `Film video: "${inFilming[0].title.substring(0, 40)}..."`,
-          completed: false,
-          priority: 'high'
+          completed: !!storedPipelineStatus[id],
+          priority: 'high',
+          isDbTask: false
         });
       }
 
       if (inScripting.length > 0) {
-        tasks.push({
-          id: 'scripting',
+        const id = `scripting-${inScripting[0].id}`;
+        tasks.unshift({
+          id,
           title: `Finish script for: "${inScripting[0].title.substring(0, 35)}..."`,
-          completed: false,
-          priority: 'high'
+          completed: !!storedPipelineStatus[id],
+          priority: 'high',
+          isDbTask: false
         });
       }
 
       if (savedCount < 5) {
+        const id = 'research-goal';
         tasks.push({
-          id: 'research',
+          id,
           title: 'Find new video ideas (aim for 5+ saved)',
-          completed: savedCount >= 5,
-          priority: 'medium'
+          completed: !!storedPipelineStatus[id] || savedCount >= 5,
+          priority: 'medium',
+          isDbTask: false
         });
       }
 
-      tasks.push({
-        id: 'engage',
-        title: 'Reply to comments on recent videos',
-        completed: false,
-        priority: 'medium'
-      });
-
-      tasks.push({
-        id: 'thumbnail',
-        title: 'Review/improve thumbnail designs',
-        completed: false,
-        priority: 'low'
-      });
-
-      // Load completed state from localStorage
-      const storedTasks = localStorage.getItem(`dashboard_tasks_${today}`);
-      if (storedTasks) {
-        const completedIds = JSON.parse(storedTasks);
-        tasks.forEach(task => {
-          if (completedIds.includes(task.id)) {
-            task.completed = true;
-          }
-        });
-      }
-
-      setDailyTasks(tasks);
+      setDashboardTasks(tasks);
     };
 
-    generateDailyTasks();
+    loadTasks();
   }, [savedIdeas]);
 
-  const toggleTask = (taskId: string) => {
-    const today = new Date().toDateString();
-    setDailyTasks(prev => {
-      const updated = prev.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t);
-      const completedIds = updated.filter(t => t.completed).map(t => t.id);
-      localStorage.setItem(`dashboard_tasks_${today}`, JSON.stringify(completedIds));
-      return updated;
-    });
+  const toggleTask = async (taskId: string, isDbTask?: boolean) => {
+    // Optimistic update
+    setDashboardTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t));
+
+    if (isDbTask) {
+      // Update in DB
+      const task = dashboardTasks.find(t => t.id === taskId);
+      if (task) {
+        await toggleTaskComplete(taskId, !task.completed);
+      }
+    } else {
+      // Update in LocalStorage (for pipeline tasks)
+      const today = new Date().toISOString().split('T')[0];
+      const stored = JSON.parse(localStorage.getItem(`dashboard_pipeline_${today}`) || '{}');
+      const task = dashboardTasks.find(t => t.id === taskId);
+      if (task) {
+        stored[taskId] = !task.completed;
+        localStorage.setItem(`dashboard_pipeline_${today}`, JSON.stringify(stored));
+      }
+    }
   };
 
   const formatNumber = (num: number): string => {
@@ -177,8 +194,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ savedIdeas, onNavigate }) 
     done: savedIdeas.filter(i => i.status === 'done').length
   };
 
-  const completedTasks = dailyTasks.filter(t => t.completed).length;
-  const totalTasks = dailyTasks.length;
+  const completedTasks = dashboardTasks.filter(t => t.completed).length;
+  const totalTasks = dashboardTasks.length;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -260,10 +277,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ savedIdeas, onNavigate }) 
           </div>
 
           <div className="space-y-3">
-            {dailyTasks.map(task => (
+            {dashboardTasks.map(task => (
               <div
                 key={task.id}
-                onClick={() => toggleTask(task.id)}
+                onClick={() => toggleTask(task.id, task.isDbTask)}
                 className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${
                   task.completed
                     ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
@@ -283,8 +300,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ savedIdeas, onNavigate }) 
                 {task.priority === 'high' && !task.completed && (
                   <span className="text-xs px-2 py-0.5 bg-red-500 text-white rounded-full">Priority</span>
                 )}
+                {!task.isDbTask && !task.completed && (
+                  <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">Auto</span>
+                )}
               </div>
             ))}
+            
+            {dashboardTasks.length === 0 && (
+              <div className="text-center py-6 text-gray-500 dark:text-gray-400 text-sm">
+                No tasks for today. Relax or check your settings!
+              </div>
+            )}
           </div>
 
           <button

@@ -513,6 +513,7 @@ export interface AppSettings {
   userApiKey: string;
   defaultNiche: string;
   language: string;
+  perpetualTasks: string[];
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -521,6 +522,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   userApiKey: '',
   defaultNiche: 'Pokemon Investing',
   language: 'es',
+  perpetualTasks: []
 };
 
 export const getSetting = async <T>(key: string, defaultValue: T): Promise<T> => {
@@ -578,6 +580,9 @@ export const getAllSettings = async (): Promise<AppSettings> => {
       case 'language':
         settings.language = row.value as string;
         break;
+      case 'perpetual_tasks':
+        settings.perpetualTasks = row.value as string[];
+        break;
     }
   }
 
@@ -591,12 +596,58 @@ export const saveAllSettings = async (settings: AppSettings): Promise<void> => {
     { key: 'user_api_key', value: settings.userApiKey },
     { key: 'default_niche', value: settings.defaultNiche },
     { key: 'language', value: settings.language },
+    { key: 'perpetual_tasks', value: settings.perpetualTasks },
   ];
 
   for (const entry of entries) {
     await setSetting(entry.key, entry.value);
   }
 };
+
+// ==================== TASK HELPERS ====================
+
+export const ensureDailyTasksForDate = async (date: string): Promise<void> => {
+  // 1. Check if ANY tasks exist for this date
+  const { count, error } = await supabase
+    .from('tasks')
+    .select('id', { count: 'exact', head: true })
+    .eq('date', date);
+
+  if (error) {
+    console.error('Error checking tasks count:', error);
+    return;
+  }
+
+  // 2. If tasks exist, we assume the day is initialized.
+  if (count && count > 0) {
+    return;
+  }
+
+  // 3. If no tasks, fetch perpetual tasks from settings
+  const perpetualTasks = await getSetting<string[]>('perpetual_tasks', []);
+
+  if (perpetualTasks.length === 0) {
+    return;
+  }
+
+  // 4. Create tasks
+  const newTasks = perpetualTasks.map(text => ({
+    id: Math.random().toString(36).substr(2, 9),
+    text,
+    completed: false,
+    date,
+    created_at: new Date().toISOString()
+  }));
+
+  const { error: insertError } = await supabase
+    .from('tasks')
+    .insert(newTasks);
+
+  if (insertError) {
+    console.error('Error inserting perpetual tasks:', insertError);
+  }
+};
+
 
 // ==================== STATISTICS ====================
 

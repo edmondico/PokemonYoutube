@@ -16,6 +16,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ theme: currentTheme,
     userApiKey: '',
     defaultNiche: 'Pokemon Investing',
     language: 'es',
+    perpetualTasks: []
   });
 
   const [loading, setLoading] = useState(true);
@@ -287,6 +288,55 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ theme: currentTheme,
                   <FileText size={16} />
                   Export Saved Ideas (CSV)
                 </button>
+              </div>
+            </div>
+
+            {/* Perpetual Daily Tasks */}
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <Check size={18} />
+                Perpetual Daily Tasks
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                These tasks will automatically appear on your checklist every new day.
+              </p>
+              
+              <div className="space-y-3 mb-4">
+                {settings.perpetualTasks?.map((task, index) => (
+                  <div key={index} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-200 dark:border-gray-600">
+                    <span className="flex-1 text-sm text-gray-800 dark:text-gray-200">{task}</span>
+                    <button
+                      onClick={() => {
+                        const newTasks = [...(settings.perpetualTasks || [])];
+                        newTasks.splice(index, 1);
+                        setSettings(prev => ({ ...prev, perpetualTasks: newTasks }));
+                      }}
+                      className="text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Add a new daily task..."
+                  className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm outline-none focus:border-pokemon-blue"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const val = (e.target as HTMLInputElement).value.trim();
+                      if (val) {
+                        setSettings(prev => ({ 
+                          ...prev, 
+                          perpetualTasks: [...(prev.perpetualTasks || []), val] 
+                        }));
+                        (e.target as HTMLInputElement).value = '';
+                      }
+                    }
+                  }}
+                />
               </div>
             </div>
           </div>
