@@ -61,10 +61,11 @@ const App: React.FC = () => {
         await db.initDB();
         await db.migrateFromLocalStorage();
 
-        const [ideas, disliked, settings] = await Promise.all([
+        const [ideas, disliked, settings, searchHistory] = await Promise.all([
           db.getSavedIdeas(),
           db.getDislikedIdeas(),
-          db.getAllSettings()
+          db.getAllSettings(),
+          db.getSearchHistory()
         ]);
 
         setSavedIdeas(ideas);
@@ -73,6 +74,19 @@ const App: React.FC = () => {
         // Apply loaded settings
         setTheme(settings.theme);
         setGlobalAiInstructions(settings.aiInstructions);
+
+        // Restore last search state if available
+        if (searchHistory && searchHistory.length > 0) {
+          const lastSearch = searchHistory[0];
+          setState(prev => ({
+            ...prev,
+            outliers: lastSearch.outliers,
+            videoIdeas: lastSearch.videoIdeas,
+            trending: lastSearch.trending,
+            mostSearched: lastSearch.mostSearched,
+            loading: false
+          }));
+        }
       } catch (error) {
         console.error('Failed to load data from Supabase:', error);
       } finally {
