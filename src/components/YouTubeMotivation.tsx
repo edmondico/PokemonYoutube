@@ -705,6 +705,23 @@ const YouTubeMotivation: React.FC = () => {
                   </div>
                 ))}
               </div>
+
+              {/* Optimal Upload Time for USA */}
+              <div className="mt-4 p-3 bg-green-100 dark:bg-green-900/30 rounded-lg border border-green-300 dark:border-green-700">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock size={16} className="text-green-600 dark:text-green-400" />
+                  <span className="font-medium text-green-800 dark:text-green-200 text-sm">Optimal Upload Time (USA audience)</span>
+                </div>
+                <p className="text-green-700 dark:text-green-300 font-bold">
+                  3:00 PM EST / 12:00 PM PST
+                </p>
+                <p className="text-green-600 dark:text-green-400 text-sm">
+                  = 21:00-22:00 Spain time
+                </p>
+                <p className="text-green-600/70 dark:text-green-400/70 text-xs mt-1">
+                  Best time for Pokemon collecting/investing audience (after work/school in USA)
+                </p>
+              </div>
             </div>
           )}
         </div>

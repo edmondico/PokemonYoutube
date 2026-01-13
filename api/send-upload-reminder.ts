@@ -1,22 +1,47 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
-const TARGET_UPLOAD_FREQUENCY = 2; // days between uploads
+const TARGET_UPLOAD_FREQUENCY = 2; // days between uploads (same as app)
 const CHANNEL_HANDLE = 'PokeBim';
 
+// Optimal upload time for Pokemon collecting/investing niche targeting USA
+// Best time: 3:00 PM EST = 21:00 Spain (winter) / 22:00 Spain (summer)
+const OPTIMAL_UPLOAD_TIME = {
+  EST: '3:00 PM',
+  PST: '12:00 PM',
+  spain: '21:00-22:00'
+};
+
 // Spain timezone offset (UTC+1 in winter, UTC+2 in summer)
-function getSpainHour(): number {
+function getSpainDate(): Date {
   const now = new Date();
-  // Simple DST check for Spain (last Sunday of March to last Sunday of October)
   const month = now.getUTCMonth();
   const isDST = month > 2 && month < 9; // April to September roughly
   const offset = isDST ? 2 : 1;
-  return (now.getUTCHours() + offset) % 24;
+  return new Date(now.getTime() + offset * 60 * 60 * 1000);
+}
+
+function getSpainHour(): number {
+  return getSpainDate().getUTCHours();
 }
 
 function isWithinReminderHours(): boolean {
   const spainHour = getSpainHour();
   return spainHour >= 10 && spainHour <= 22;
+}
+
+function formatDateSpain(date: Date): string {
+  return date.toLocaleDateString('es-ES', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+
+// Get just the date part (year, month, day) without time
+function getDateOnly(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
 async function getChannelId(apiKey: string): Promise<string | null> {
@@ -56,32 +81,49 @@ async function getLastVideoDate(channelId: string, apiKey: string): Promise<Date
   return new Date(playlistData.items[0].snippet.publishedAt);
 }
 
-function isUploadDay(lastVideoDate: Date): boolean {
-  const now = new Date();
-  const diffMs = now.getTime() - lastVideoDate.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+// Calculate suggested upload dates (same logic as app's getSuggestedUploadDates)
+function getSuggestedUploadDates(lastVideoDate: Date): Date[] {
+  const suggestions: Date[] = [];
+  let nextDate = new Date(lastVideoDate);
 
-  return diffDays >= TARGET_UPLOAD_FREQUENCY;
+  // Generate next 5 suggested upload dates
+  for (let i = 0; i < 5; i++) {
+    nextDate = new Date(nextDate.getTime() + TARGET_UPLOAD_FREQUENCY * 24 * 60 * 60 * 1000);
+    suggestions.push(new Date(nextDate));
+  }
+
+  return suggestions;
 }
 
+// Check if today is a suggested upload day
+function isTodayUploadDay(lastVideoDate: Date): boolean {
+  const suggestedDates = getSuggestedUploadDates(lastVideoDate);
+  const todayStr = getDateOnly(getSpainDate());
+
+  return suggestedDates.some(date => getDateOnly(date) === todayStr);
+}
+
+// Check if video was uploaded today
 function isVideoUploadedToday(lastVideoDate: Date): boolean {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const videoDay = new Date(lastVideoDate.getFullYear(), lastVideoDate.getMonth(), lastVideoDate.getDate());
-
-  return today.getTime() === videoDay.getTime();
+  const todayStr = getDateOnly(getSpainDate());
+  const videoDateStr = getDateOnly(lastVideoDate);
+  return todayStr === videoDateStr;
 }
 
-function formatDate(date: Date): string {
-  return date.toLocaleDateString('es-ES', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+// Calculate days since last upload
+function daysSinceLastUpload(lastVideoDate: Date): number {
+  const now = getSpainDate();
+  const diffMs = now.getTime() - lastVideoDate.getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 }
 
-async function sendEmail(resendApiKey: string, toEmail: string, lastVideoDate: Date): Promise<boolean> {
+async function sendEmail(resendApiKey: string, toEmail: string, lastVideoDate: Date, suggestedDates: Date[]): Promise<boolean> {
+  const daysSince = daysSinceLastUpload(lastVideoDate);
+  const nextDates = suggestedDates
+    .filter(d => d >= getSpainDate())
+    .slice(0, 3)
+    .map(d => formatDateSpain(d));
+
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -98,9 +140,23 @@ async function sendEmail(resendApiKey: string, toEmail: string, lastVideoDate: D
 
           <p>Es día de subir video a tu canal de YouTube (<strong>@${CHANNEL_HANDLE}</strong>).</p>
 
-          <p>Tu último video fue subido el <strong>${formatDate(lastVideoDate)}</strong>.</p>
+          <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 16px; margin: 20px 0;">
+            <p style="margin: 0; font-weight: bold; color: #856404;">Tu último video fue subido hace ${daysSince} días</p>
+            <p style="margin: 8px 0 0 0; color: #856404;">${formatDateSpain(lastVideoDate)}</p>
+          </div>
 
-          <p>Según tu schedule de cada ${TARGET_UPLOAD_FREQUENCY} días, hoy deberías subir uno nuevo.</p>
+          <div style="background: #d4edda; border: 1px solid #28a745; border-radius: 8px; padding: 16px; margin: 20px 0;">
+            <p style="margin: 0; font-weight: bold; color: #155724;">Hora óptima de subida para USA:</p>
+            <p style="margin: 8px 0 0 0; color: #155724; font-size: 18px;">
+              <strong>${OPTIMAL_UPLOAD_TIME.EST} EST</strong> (${OPTIMAL_UPLOAD_TIME.PST} PST)
+            </p>
+            <p style="margin: 8px 0 0 0; color: #155724;">
+              = <strong>${OPTIMAL_UPLOAD_TIME.spain} hora España</strong>
+            </p>
+            <p style="margin: 8px 0 0 0; color: #155724; font-size: 12px;">
+              Este horario maximiza el alcance para la audiencia de Pokemon collecting/investing en USA (después del trabajo/escuela).
+            </p>
+          </div>
 
           <p style="font-size: 24px;">¡Ánimo! 🎬</p>
 
@@ -108,7 +164,8 @@ async function sendEmail(resendApiKey: string, toEmail: string, lastVideoDate: D
 
           <p style="color: #666; font-size: 12px;">
             Este es un recordatorio automático de PokeTrend AI.<br>
-            Se enviará cada 2 horas hasta las 22:00 o hasta que subas el video.
+            Se enviará cada 2 horas hasta las 22:00 o hasta que subas el video.<br>
+            Schedule: cada ${TARGET_UPLOAD_FREQUENCY} días.
           </p>
         </div>
       `
@@ -130,13 +187,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Verify cron secret (optional but recommended)
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
-    // Allow without auth for testing, but log it
-    console.log('Request without CRON_SECRET authorization');
-  }
-
   try {
     const youtubeApiKey = process.env.YOUTUBE_API_KEY || process.env.VITE_YOUTUBE_API_KEY;
     const resendApiKey = process.env.RESEND_API_KEY;
@@ -146,12 +196,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error('Missing required environment variables: YOUTUBE_API_KEY or RESEND_API_KEY');
     }
 
+    const spainHour = getSpainHour();
+
     // Check if within reminder hours (10:00 - 22:00 Spain time)
     if (!isWithinReminderHours()) {
       return res.status(200).json({
         success: true,
         message: 'Outside reminder hours (10:00-22:00 Spain time)',
-        spainHour: getSpainHour()
+        spainHour,
+        action: 'skipped'
       });
     }
 
@@ -167,34 +220,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error('Could not get last video date');
     }
 
+    const suggestedDates = getSuggestedUploadDates(lastVideoDate);
+    const daysSince = daysSinceLastUpload(lastVideoDate);
+
     // Check if video was already uploaded today
     if (isVideoUploadedToday(lastVideoDate)) {
       return res.status(200).json({
         success: true,
         message: 'Video already uploaded today! No reminder needed.',
-        lastVideoDate: lastVideoDate.toISOString()
+        lastVideoDate: lastVideoDate.toISOString(),
+        action: 'skipped_uploaded_today'
       });
     }
 
-    // Check if today is an upload day
-    if (!isUploadDay(lastVideoDate)) {
-      const daysUntilUpload = TARGET_UPLOAD_FREQUENCY - Math.floor((Date.now() - lastVideoDate.getTime()) / (1000 * 60 * 60 * 24));
+    // Check if today is a scheduled upload day (following the app's calendar logic)
+    if (!isTodayUploadDay(lastVideoDate)) {
+      const nextUploadDate = suggestedDates.find(d => d >= getSpainDate());
       return res.status(200).json({
         success: true,
-        message: 'Not an upload day yet',
+        message: 'Not a scheduled upload day',
         lastVideoDate: lastVideoDate.toISOString(),
-        daysUntilUpload
+        daysSinceLastUpload: daysSince,
+        nextUploadDate: nextUploadDate?.toISOString(),
+        action: 'skipped_not_upload_day'
       });
     }
 
-    // Send reminder email
-    const emailSent = await sendEmail(resendApiKey, reminderEmail, lastVideoDate);
+    // Today IS an upload day and no video uploaded yet -> send reminder
+    const emailSent = await sendEmail(resendApiKey, reminderEmail, lastVideoDate, suggestedDates);
 
     if (emailSent) {
       return res.status(200).json({
         success: true,
         message: `Reminder email sent to ${reminderEmail}`,
-        lastVideoDate: lastVideoDate.toISOString()
+        lastVideoDate: lastVideoDate.toISOString(),
+        daysSinceLastUpload: daysSince,
+        spainHour,
+        optimalUploadTime: OPTIMAL_UPLOAD_TIME,
+        action: 'email_sent'
       });
     } else {
       throw new Error('Failed to send email');
