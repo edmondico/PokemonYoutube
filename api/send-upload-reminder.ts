@@ -117,68 +117,93 @@ function daysSinceLastUpload(lastVideoDate: Date): number {
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 }
 
-async function sendEmail(resendApiKey: string, toEmail: string, lastVideoDate: Date, suggestedDates: Date[]): Promise<boolean> {
+async function sendEmail(resendApiKey: string, toEmail: string, lastVideoDate: Date, suggestedDates: Date[]): Promise<{ success: boolean; error?: string; details?: any }> {
   const daysSince = daysSinceLastUpload(lastVideoDate);
-  const nextDates = suggestedDates
-    .filter(d => d >= getSpainDate())
-    .slice(0, 3)
-    .map(d => formatDateSpain(d));
 
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${resendApiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      from: 'PokeTrend AI <onboarding@resend.dev>',
-      to: [toEmail],
-      subject: '¡Hoy toca subir video a YouTube!',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #ff0000;">¡Hola!</h2>
+  console.log('=== SEND EMAIL DEBUG ===');
+  console.log('Resend API Key (first 10 chars):', resendApiKey?.substring(0, 10) || 'MISSING');
+  console.log('To Email:', toEmail);
+  console.log('Last Video Date:', lastVideoDate);
 
-          <p>Es día de subir video a tu canal de YouTube (<strong>@${CHANNEL_HANDLE}</strong>).</p>
-
-          <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 16px; margin: 20px 0;">
-            <p style="margin: 0; font-weight: bold; color: #856404;">Tu último video fue subido hace ${daysSince} días</p>
-            <p style="margin: 8px 0 0 0; color: #856404;">${formatDateSpain(lastVideoDate)}</p>
-          </div>
-
-          <div style="background: #d4edda; border: 1px solid #28a745; border-radius: 8px; padding: 16px; margin: 20px 0;">
-            <p style="margin: 0; font-weight: bold; color: #155724;">Hora óptima de subida para USA:</p>
-            <p style="margin: 8px 0 0 0; color: #155724; font-size: 18px;">
-              <strong>${OPTIMAL_UPLOAD_TIME.EST} EST</strong> (${OPTIMAL_UPLOAD_TIME.PST} PST)
-            </p>
-            <p style="margin: 8px 0 0 0; color: #155724;">
-              = <strong>${OPTIMAL_UPLOAD_TIME.spain} hora España</strong>
-            </p>
-            <p style="margin: 8px 0 0 0; color: #155724; font-size: 12px;">
-              Este horario maximiza el alcance para la audiencia de Pokemon collecting/investing en USA (después del trabajo/escuela).
-            </p>
-          </div>
-
-          <p style="font-size: 24px;">¡Ánimo! 🎬</p>
-
-          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-
-          <p style="color: #666; font-size: 12px;">
-            Este es un recordatorio automático de PokeTrend AI.<br>
-            Se enviará cada 2 horas hasta las 22:00 o hasta que subas el video.<br>
-            Schedule: cada ${TARGET_UPLOAD_FREQUENCY} días.
-          </p>
-        </div>
-      `
-    })
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Error sending email:', error);
-    return false;
+  if (!resendApiKey) {
+    return { success: false, error: 'RESEND_API_KEY is missing' };
   }
 
-  return true;
+  if (!toEmail) {
+    return { success: false, error: 'REMINDER_EMAIL is missing' };
+  }
+
+  const emailBody = {
+    from: 'PokeTrend AI <onboarding@resend.dev>',
+    to: [toEmail],
+    subject: '¡Hoy toca subir video a YouTube!',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #ff0000;">¡Hola!</h2>
+
+        <p>Es día de subir video a tu canal de YouTube (<strong>@${CHANNEL_HANDLE}</strong>).</p>
+
+        <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 16px; margin: 20px 0;">
+          <p style="margin: 0; font-weight: bold; color: #856404;">Tu último video fue subido hace ${daysSince} días</p>
+          <p style="margin: 8px 0 0 0; color: #856404;">${formatDateSpain(lastVideoDate)}</p>
+        </div>
+
+        <div style="background: #d4edda; border: 1px solid #28a745; border-radius: 8px; padding: 16px; margin: 20px 0;">
+          <p style="margin: 0; font-weight: bold; color: #155724;">Hora óptima de subida para USA:</p>
+          <p style="margin: 8px 0 0 0; color: #155724; font-size: 18px;">
+            <strong>${OPTIMAL_UPLOAD_TIME.EST} EST</strong> (${OPTIMAL_UPLOAD_TIME.PST} PST)
+          </p>
+          <p style="margin: 8px 0 0 0; color: #155724;">
+            = <strong>${OPTIMAL_UPLOAD_TIME.spain} hora España</strong>
+          </p>
+          <p style="margin: 8px 0 0 0; color: #155724; font-size: 12px;">
+            Este horario maximiza el alcance para la audiencia de Pokemon collecting/investing en USA (después del trabajo/escuela).
+          </p>
+        </div>
+
+        <p style="font-size: 24px;">¡Ánimo! 🎬</p>
+
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+
+        <p style="color: #666; font-size: 12px;">
+          Este es un recordatorio automático de PokeTrend AI.<br>
+          Se enviará cada 2 horas hasta las 22:00 o hasta que subas el video.<br>
+          Schedule: cada ${TARGET_UPLOAD_FREQUENCY} días.
+        </p>
+      </div>
+    `
+  };
+
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(emailBody)
+    });
+
+    const responseText = await response.text();
+    console.log('Resend response status:', response.status);
+    console.log('Resend response:', responseText);
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `Resend API error: ${response.status}`,
+        details: responseText
+      };
+    }
+
+    return { success: true, details: responseText };
+  } catch (err) {
+    console.error('Fetch error:', err);
+    return {
+      success: false,
+      error: `Fetch failed: ${err instanceof Error ? err.message : 'Unknown'}`
+    };
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -247,9 +272,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Today IS an upload day and no video uploaded yet -> send reminder
-    const emailSent = await sendEmail(resendApiKey, reminderEmail, lastVideoDate, suggestedDates);
+    const emailResult = await sendEmail(resendApiKey, reminderEmail, lastVideoDate, suggestedDates);
 
-    if (emailSent) {
+    if (emailResult.success) {
       return res.status(200).json({
         success: true,
         message: `Reminder email sent to ${reminderEmail}`,
@@ -257,17 +282,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         daysSinceLastUpload: daysSince,
         spainHour,
         optimalUploadTime: OPTIMAL_UPLOAD_TIME,
-        action: 'email_sent'
+        action: 'email_sent',
+        emailDetails: emailResult.details
       });
     } else {
-      throw new Error('Failed to send email');
+      return res.status(500).json({
+        success: false,
+        error: emailResult.error || 'Failed to send email',
+        details: emailResult.details,
+        debug: {
+          hasResendKey: !!resendApiKey,
+          resendKeyPrefix: resendApiKey?.substring(0, 10),
+          reminderEmail,
+          lastVideoDate: lastVideoDate.toISOString()
+        }
+      });
     }
 
   } catch (error) {
     console.error('Error:', error);
     return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     });
   }
 }
