@@ -18,7 +18,6 @@ import {
   AlertTriangle,
   Clock,
   Calendar,
-  Upload,
   XCircle
 } from 'lucide-react';
 import { VideoIdea } from '../types';
