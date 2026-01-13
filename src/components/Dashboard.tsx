@@ -14,7 +14,12 @@ import {
   Search,
   Wand2,
   KanbanSquare,
-  Play
+  Play,
+  AlertTriangle,
+  Clock,
+  Calendar,
+  Upload,
+  XCircle
 } from 'lucide-react';
 import { VideoIdea } from '../types';
 import { fetchChannelByHandle, fetchChannelVideos, YouTubeVideo } from '../services/youtubeService';
@@ -34,12 +39,14 @@ interface DashboardTask {
 }
 
 const CHANNEL_HANDLE = '@PokeBim';
+const TARGET_UPLOAD_FREQUENCY = 2; // days between uploads
 
 export const Dashboard: React.FC<DashboardProps> = ({ savedIdeas, onNavigate }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [channelStats, setChannelStats] = useState<{ subscribers: number; totalViews: number; totalVideos: number } | null>(null);
   const [recentVideos, setRecentVideos] = useState<YouTubeVideo[]>([]);
   const [dashboardTasks, setDashboardTasks] = useState<DashboardTask[]>([]);
+  const [lastVideoDate, setLastVideoDate] = useState<Date | null>(null);
 
   // Motivational quotes
   const quotes = [
@@ -68,8 +75,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ savedIdeas, onNavigate }) 
             totalVideos: channel.totalVideos
           });
 
-          const videos = await fetchChannelVideos(channel.channelId, 5);
+          const videos = await fetchChannelVideos(channel.channelId, 10);
           setRecentVideos(videos);
+
+          // Set last video date for upload schedule
+          if (videos.length > 0) {
+            const sortedVideos = [...videos].sort((a, b) =>
+              new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+            );
+            setLastVideoDate(new Date(sortedVideos[0].publishedAt));
+          }
         }
       } catch (error) {
         console.error('Failed to load channel data:', error);
@@ -197,6 +212,83 @@ export const Dashboard: React.FC<DashboardProps> = ({ savedIdeas, onNavigate }) 
   const completedTasks = dashboardTasks.filter(t => t.completed).length;
   const totalTasks = dashboardTasks.length;
 
+  // Upload Schedule Calculations
+  const getUploadStatus = () => {
+    if (!lastVideoDate) return null;
+
+    const now = new Date();
+    const diffMs = now.getTime() - lastVideoDate.getTime();
+    const daysSinceUpload = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    // Check if video was uploaded today
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const videoDay = new Date(lastVideoDate.getFullYear(), lastVideoDate.getMonth(), lastVideoDate.getDate());
+    const uploadedToday = today.getTime() === videoDay.getTime();
+
+    // Calculate next upload dates
+    const getNextUploadDates = (): Date[] => {
+      const suggestions: Date[] = [];
+      let nextDate = new Date(lastVideoDate);
+      for (let i = 0; i < 5; i++) {
+        nextDate = new Date(nextDate.getTime() + TARGET_UPLOAD_FREQUENCY * 24 * 60 * 60 * 1000);
+        if (nextDate >= today) {
+          suggestions.push(new Date(nextDate));
+        }
+      }
+      return suggestions;
+    };
+
+    const nextUploadDates = getNextUploadDates();
+    const isUploadDay = nextUploadDates.some(d => {
+      const uploadDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      return uploadDay.getTime() === today.getTime();
+    });
+
+    // Determine urgency level
+    let urgency: 'ok' | 'warning' | 'urgent' | 'critical' = 'ok';
+    let message = '';
+    let subMessage = '';
+
+    if (uploadedToday) {
+      urgency = 'ok';
+      message = '¡Video subido hoy!';
+      subMessage = 'Buen trabajo. Próximo video en 2 días.';
+    } else if (daysSinceUpload === 0) {
+      urgency = 'ok';
+      message = 'Todo bien';
+      subMessage = `Último video: hoy. Próximo: ${nextUploadDates[0]?.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' })}`;
+    } else if (daysSinceUpload === 1) {
+      urgency = 'ok';
+      message = 'Vas bien';
+      subMessage = `Último video: ayer. Mañana toca subir.`;
+    } else if (daysSinceUpload === 2) {
+      urgency = 'warning';
+      message = '¡HOY TOCA SUBIR VIDEO!';
+      subMessage = `Llevas ${daysSinceUpload} días sin subir. ¡Es hora de crear!`;
+    } else if (daysSinceUpload === 3) {
+      urgency = 'urgent';
+      message = '¡LLEVAS 3 DÍAS SIN SUBIR!';
+      subMessage = `Te estás retrasando. ¡El algoritmo penaliza la inconsistencia!`;
+    } else if (daysSinceUpload >= 4) {
+      urgency = 'critical';
+      message = `¡¡${daysSinceUpload} DÍAS SIN VIDEO!!`;
+      subMessage = `Estás perdiendo momentum. ¡Sube algo HOY!`;
+    }
+
+    return {
+      daysSinceUpload,
+      uploadedToday,
+      isUploadDay,
+      nextUploadDates,
+      urgency,
+      message,
+      subMessage,
+      lastVideoDate
+    };
+  };
+
+  const uploadStatus = getUploadStatus();
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -236,6 +328,128 @@ export const Dashboard: React.FC<DashboardProps> = ({ savedIdeas, onNavigate }) 
           </div>
         </div>
       </div>
+
+      {/* Upload Accountability Banner */}
+      {uploadStatus && (
+        <div className={`rounded-2xl p-6 border-2 relative overflow-hidden ${
+          uploadStatus.urgency === 'ok'
+            ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
+            : uploadStatus.urgency === 'warning'
+            ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-400 dark:border-yellow-600 animate-pulse'
+            : uploadStatus.urgency === 'urgent'
+            ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-500 dark:border-orange-600'
+            : 'bg-red-50 dark:bg-red-900/20 border-red-500 dark:border-red-600 animate-pulse'
+        }`}>
+          {/* Urgency indicator bar */}
+          <div className={`absolute top-0 left-0 right-0 h-1 ${
+            uploadStatus.urgency === 'ok' ? 'bg-green-500' :
+            uploadStatus.urgency === 'warning' ? 'bg-yellow-500' :
+            uploadStatus.urgency === 'urgent' ? 'bg-orange-500' :
+            'bg-red-600'
+          }`} />
+
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className={`p-4 rounded-xl ${
+                uploadStatus.urgency === 'ok' ? 'bg-green-100 dark:bg-green-800/30' :
+                uploadStatus.urgency === 'warning' ? 'bg-yellow-100 dark:bg-yellow-800/30' :
+                uploadStatus.urgency === 'urgent' ? 'bg-orange-100 dark:bg-orange-800/30' :
+                'bg-red-100 dark:bg-red-800/30'
+              }`}>
+                {uploadStatus.urgency === 'ok' ? (
+                  <CheckCircle2 className="text-green-600 dark:text-green-400" size={32} />
+                ) : uploadStatus.urgency === 'warning' ? (
+                  <AlertTriangle className="text-yellow-600 dark:text-yellow-400" size={32} />
+                ) : uploadStatus.urgency === 'urgent' ? (
+                  <AlertTriangle className="text-orange-600 dark:text-orange-400" size={32} />
+                ) : (
+                  <XCircle className="text-red-600 dark:text-red-400" size={32} />
+                )}
+              </div>
+
+              <div>
+                <h2 className={`text-xl md:text-2xl font-bold ${
+                  uploadStatus.urgency === 'ok' ? 'text-green-700 dark:text-green-300' :
+                  uploadStatus.urgency === 'warning' ? 'text-yellow-700 dark:text-yellow-300' :
+                  uploadStatus.urgency === 'urgent' ? 'text-orange-700 dark:text-orange-300' :
+                  'text-red-700 dark:text-red-300'
+                }`}>
+                  {uploadStatus.message}
+                </h2>
+                <p className={`text-sm md:text-base ${
+                  uploadStatus.urgency === 'ok' ? 'text-green-600 dark:text-green-400' :
+                  uploadStatus.urgency === 'warning' ? 'text-yellow-600 dark:text-yellow-400' :
+                  uploadStatus.urgency === 'urgent' ? 'text-orange-600 dark:text-orange-400' :
+                  'text-red-600 dark:text-red-400'
+                }`}>
+                  {uploadStatus.subMessage}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-3 md:items-center">
+              {/* Days counter */}
+              <div className={`text-center px-4 py-2 rounded-xl ${
+                uploadStatus.urgency === 'ok' ? 'bg-green-100 dark:bg-green-800/40' :
+                uploadStatus.urgency === 'warning' ? 'bg-yellow-100 dark:bg-yellow-800/40' :
+                uploadStatus.urgency === 'urgent' ? 'bg-orange-100 dark:bg-orange-800/40' :
+                'bg-red-100 dark:bg-red-800/40'
+              }`}>
+                <div className={`text-3xl font-bold ${
+                  uploadStatus.urgency === 'ok' ? 'text-green-700 dark:text-green-300' :
+                  uploadStatus.urgency === 'warning' ? 'text-yellow-700 dark:text-yellow-300' :
+                  uploadStatus.urgency === 'urgent' ? 'text-orange-700 dark:text-orange-300' :
+                  'text-red-700 dark:text-red-300'
+                }`}>
+                  {uploadStatus.daysSinceUpload}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">días sin video</div>
+              </div>
+
+              {/* Optimal upload time */}
+              {uploadStatus.urgency !== 'ok' && (
+                <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                    <Clock size={16} />
+                    <span className="text-sm font-medium">Hora óptima:</span>
+                  </div>
+                  <div className="text-lg font-bold text-pokemon-blue">21:00-22:00</div>
+                  <div className="text-xs text-gray-500">3PM EST para USA</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Next upload dates */}
+          {!uploadStatus.uploadedToday && uploadStatus.nextUploadDates.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar size={16} className="text-gray-500" />
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Próximas fechas de subida:</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {uploadStatus.nextUploadDates.slice(0, 4).map((date, idx) => {
+                  const isToday = new Date().toDateString() === date.toDateString();
+                  return (
+                    <span
+                      key={idx}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                        isToday
+                          ? 'bg-red-500 text-white animate-pulse'
+                          : idx === 0
+                          ? 'bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {isToday ? '¡HOY!' : date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Quick Stats Row */}
       {channelStats && (
