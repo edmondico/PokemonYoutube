@@ -117,16 +117,16 @@ function daysSinceLastUpload(lastVideoDate: Date): number {
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 }
 
-async function sendEmail(resendApiKey: string, toEmail: string, lastVideoDate: Date, suggestedDates: Date[]): Promise<{ success: boolean; error?: string; details?: any }> {
+async function sendEmail(apiKey: string, apiSecret: string, toEmail: string, fromEmail: string, lastVideoDate: Date): Promise<{ success: boolean; error?: string; details?: any }> {
   const daysSince = daysSinceLastUpload(lastVideoDate);
 
   console.log('=== SEND EMAIL DEBUG ===');
-  console.log('Resend API Key (first 10 chars):', resendApiKey?.substring(0, 10) || 'MISSING');
+  console.log('Mailjet API Key (first 10 chars):', apiKey?.substring(0, 10) || 'MISSING');
   console.log('To Email:', toEmail);
-  console.log('Last Video Date:', lastVideoDate);
+  console.log('From Email:', fromEmail);
 
-  if (!resendApiKey) {
-    return { success: false, error: 'RESEND_API_KEY is missing' };
+  if (!apiKey || !apiSecret) {
+    return { success: false, error: 'MAILJET_API_KEY or MAILJET_SECRET is missing' };
   }
 
   if (!toEmail) {
@@ -134,64 +134,79 @@ async function sendEmail(resendApiKey: string, toEmail: string, lastVideoDate: D
   }
 
   const emailBody = {
-    from: 'PokeTrend AI <onboarding@resend.dev>',
-    to: [toEmail],
-    subject: '¡Hoy toca subir video a YouTube!',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #ff0000;">¡Hola!</h2>
+    Messages: [
+      {
+        From: {
+          Email: fromEmail,
+          Name: "PokeTrend AI"
+        },
+        To: [
+          {
+            Email: toEmail,
+            Name: "Biel"
+          }
+        ],
+        Subject: "¡Hoy toca subir video a YouTube!",
+        HTMLPart: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #ff0000;">¡Hola!</h2>
 
-        <p>Es día de subir video a tu canal de YouTube (<strong>@${CHANNEL_HANDLE}</strong>).</p>
+            <p>Es día de subir video a tu canal de YouTube (<strong>@${CHANNEL_HANDLE}</strong>).</p>
 
-        <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 16px; margin: 20px 0;">
-          <p style="margin: 0; font-weight: bold; color: #856404;">Tu último video fue subido hace ${daysSince} días</p>
-          <p style="margin: 8px 0 0 0; color: #856404;">${formatDateSpain(lastVideoDate)}</p>
-        </div>
+            <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 16px; margin: 20px 0;">
+              <p style="margin: 0; font-weight: bold; color: #856404;">Tu último video fue subido hace ${daysSince} días</p>
+              <p style="margin: 8px 0 0 0; color: #856404;">${formatDateSpain(lastVideoDate)}</p>
+            </div>
 
-        <div style="background: #d4edda; border: 1px solid #28a745; border-radius: 8px; padding: 16px; margin: 20px 0;">
-          <p style="margin: 0; font-weight: bold; color: #155724;">Hora óptima de subida para USA:</p>
-          <p style="margin: 8px 0 0 0; color: #155724; font-size: 18px;">
-            <strong>${OPTIMAL_UPLOAD_TIME.EST} EST</strong> (${OPTIMAL_UPLOAD_TIME.PST} PST)
-          </p>
-          <p style="margin: 8px 0 0 0; color: #155724;">
-            = <strong>${OPTIMAL_UPLOAD_TIME.spain} hora España</strong>
-          </p>
-          <p style="margin: 8px 0 0 0; color: #155724; font-size: 12px;">
-            Este horario maximiza el alcance para la audiencia de Pokemon collecting/investing en USA (después del trabajo/escuela).
-          </p>
-        </div>
+            <div style="background: #d4edda; border: 1px solid #28a745; border-radius: 8px; padding: 16px; margin: 20px 0;">
+              <p style="margin: 0; font-weight: bold; color: #155724;">Hora óptima de subida para USA:</p>
+              <p style="margin: 8px 0 0 0; color: #155724; font-size: 18px;">
+                <strong>${OPTIMAL_UPLOAD_TIME.EST} EST</strong> (${OPTIMAL_UPLOAD_TIME.PST} PST)
+              </p>
+              <p style="margin: 8px 0 0 0; color: #155724;">
+                = <strong>${OPTIMAL_UPLOAD_TIME.spain} hora España</strong>
+              </p>
+              <p style="margin: 8px 0 0 0; color: #155724; font-size: 12px;">
+                Este horario maximiza el alcance para la audiencia de Pokemon collecting/investing en USA (después del trabajo/escuela).
+              </p>
+            </div>
 
-        <p style="font-size: 24px;">¡Ánimo! 🎬</p>
+            <p style="font-size: 24px;">¡Ánimo! 🎬</p>
 
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
 
-        <p style="color: #666; font-size: 12px;">
-          Este es un recordatorio automático de PokeTrend AI.<br>
-          Se enviará cada 2 horas hasta las 22:00 o hasta que subas el video.<br>
-          Schedule: cada ${TARGET_UPLOAD_FREQUENCY} días.
-        </p>
-      </div>
-    `
+            <p style="color: #666; font-size: 12px;">
+              Este es un recordatorio automático de PokeTrend AI.<br>
+              Se enviará cada 2 horas hasta las 22:00 o hasta que subas el video.<br>
+              Schedule: cada ${TARGET_UPLOAD_FREQUENCY} días.
+            </p>
+          </div>
+        `
+      }
+    ]
   };
 
   try {
-    const response = await fetch('https://api.resend.com/emails', {
+    // Mailjet uses Basic Auth with API key and secret
+    const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString('base64');
+
+    const response = await fetch('https://api.mailjet.com/v3.1/send', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
+        'Authorization': `Basic ${auth}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(emailBody)
     });
 
     const responseText = await response.text();
-    console.log('Resend response status:', response.status);
-    console.log('Resend response:', responseText);
+    console.log('Mailjet response status:', response.status);
+    console.log('Mailjet response:', responseText);
 
     if (!response.ok) {
       return {
         success: false,
-        error: `Resend API error: ${response.status}`,
+        error: `Mailjet API error: ${response.status}`,
         details: responseText
       };
     }
@@ -214,11 +229,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const youtubeApiKey = process.env.YOUTUBE_API_KEY || process.env.VITE_YOUTUBE_API_KEY;
-    const resendApiKey = process.env.RESEND_API_KEY;
+    const mailjetApiKey = process.env.MAILJET_API_KEY;
+    const mailjetSecret = process.env.MAILJET_SECRET;
     const reminderEmail = process.env.REMINDER_EMAIL || 'bielmolner@gmail.com';
+    const fromEmail = process.env.FROM_EMAIL || 'edmondico@gmail.com';
 
-    if (!youtubeApiKey || !resendApiKey) {
-      throw new Error('Missing required environment variables: YOUTUBE_API_KEY or RESEND_API_KEY');
+    if (!youtubeApiKey || !mailjetApiKey || !mailjetSecret) {
+      throw new Error('Missing required environment variables: YOUTUBE_API_KEY, MAILJET_API_KEY or MAILJET_SECRET');
     }
 
     const spainHour = getSpainHour();
@@ -272,7 +289,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Today IS an upload day and no video uploaded yet -> send reminder
-    const emailResult = await sendEmail(resendApiKey, reminderEmail, lastVideoDate, suggestedDates);
+    const emailResult = await sendEmail(mailjetApiKey, mailjetSecret, reminderEmail, fromEmail, lastVideoDate);
 
     if (emailResult.success) {
       return res.status(200).json({
@@ -291,9 +308,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         error: emailResult.error || 'Failed to send email',
         details: emailResult.details,
         debug: {
-          hasResendKey: !!resendApiKey,
-          resendKeyPrefix: resendApiKey?.substring(0, 10),
+          hasMailjetKey: !!mailjetApiKey,
+          hasMailjetSecret: !!mailjetSecret,
           reminderEmail,
+          fromEmail,
           lastVideoDate: lastVideoDate.toISOString()
         }
       });
